@@ -1,0 +1,3032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NS3DW Operations Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg:        #111111;
+  --surface:   #1a1a1a;
+  --surface2:  #222222;
+  --border:    #2e2e2e;
+  --green:     #3D5447;
+  --green2:    #4A6358;
+  --green3:    #5a7a69;
+  --orange:    #D4621A;
+  --orange2:   #e07a3a;
+  --yellow:    #F6C90E;
+  --text:      #f0f0f0;
+  --muted:     #777;
+  --muted2:    #555;
+  --success:   #2e7d32;
+  --warn:      #e65100;
+  --danger:    #b71c1c;
+  --info:      #01579b;
+  --sidebar-w: 220px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;display:flex;min-height:100vh;font-size:14px;}
+a{color:var(--orange);text-decoration:none;}
+
+/* ─── SIDEBAR ─────────────────────────────────────── */
+#sidebar{width:var(--sidebar-w);background:var(--green);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;border-right:1px solid var(--green2);}
+.logo{padding:18px 16px;border-bottom:1px solid var(--green2);}
+.logo h1{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;}
+.logo span{font-size:11px;color:rgba(255,255,255,.55);display:block;margin-top:2px;}
+nav{flex:1;padding:12px 0;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:rgba(255,255,255,.75);transition:.15s;border-left:3px solid transparent;font-size:13px;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--orange);font-weight:600;}
+.nav-icon{font-size:16px;width:20px;text-align:center;}
+.nav-sep{height:1px;background:rgba(255,255,255,.1);margin:6px 12px;}
+.sidebar-foot{padding:12px 16px;border-top:1px solid var(--green2);font-size:11px;color:rgba(255,255,255,.4);}
+#sync-status{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted2);}
+.dot.ok{background:#4caf50;}
+.dot.err{background:#f44336;}
+.dot.loading{background:var(--yellow);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ─── MAIN CONTENT ────────────────────────────────── */
+#main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.topbar h2{font-size:16px;font-weight:600;}
+.topbar-actions{display:flex;gap:8px;align-items:center;}
+.content{padding:24px;flex:1;}
+
+/* ─── BUTTONS ─────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;transition:.15s;}
+.btn-primary{background:var(--green);color:#fff;}
+.btn-primary:hover{background:var(--green2);}
+.btn-orange{background:var(--orange);color:#fff;}
+.btn-orange:hover{background:var(--orange2);}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:var(--muted2);}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-danger:hover{background:#c62828;}
+
+/* ─── CARDS / GRID ────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;border-top:3px solid var(--green);}
+.kpi.orange{border-top-color:var(--orange);}
+.kpi.yellow{border-top-color:var(--yellow);}
+.kpi.info{border-top-color:#039be5;}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.kpi-value{font-size:28px;font-weight:700;color:var(--text);}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+/* ─── TABLES ──────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{background:var(--green);color:#fff;}
+thead th{padding:10px 12px;text-align:left;font-weight:600;font-size:12px;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);transition:.1s;}
+tbody tr:hover{background:var(--surface2);}
+tbody td{padding:9px 12px;color:var(--text);vertical-align:middle;}
+tbody tr:last-child{border-bottom:none;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-new{background:#01579b33;color:#4fc3f7;}
+.badge-progress{background:#e6510033;color:#ffb74d;}
+.badge-ready{background:#1b5e2033;color:#66bb6a;}
+.badge-done{background:#37474f44;color:#90a4ae;}
+.badge-cancelled{background:#b71c1c33;color:#ef9a9a;}
+.badge-frg{background:#4a148c33;color:#ce93d8;}
+.badge-pending{background:#f57f1733;color:#ffcc02;}
+
+/* ─── FORMS / INPUTS ──────────────────────────────── */
+.form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.form-row label{font-size:12px;color:var(--muted);font-weight:500;}
+input,select,textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;width:100%;outline:none;transition:.15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--green2);}
+textarea{resize:vertical;min-height:70px;}
+select option{background:var(--surface);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-grid.g3{grid-template-columns:1fr 1fr 1fr;}
+@media(max-width:600px){.form-grid,.form-grid.g3{grid-template-columns:1fr;}}
+
+/* ─── MODAL ───────────────────────────────────────── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:min(620px,96vw);max-height:90vh;overflow-y:auto;}
+.modal-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-head h3{font-size:15px;font-weight:600;}
+.modal-body{padding:20px;}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+.close-btn{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:2px 6px;}
+.close-btn:hover{color:var(--text);}
+
+/* ─── SEARCH / FILTER ─────────────────────────────── */
+.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.search-box{position:relative;flex:1;min-width:200px;}
+.search-box input{padding-left:32px;}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;}
+
+/* ─── INVENTORY ───────────────────────────────────── */
+.inv-tree{display:flex;gap:16px;min-height:400px;}
+.inv-col{background:var(--surface);border:1px solid var(--border);border-radius:8px;min-width:170px;display:flex;flex-direction:column;}
+.inv-col-head{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;background:var(--green);border-radius:7px 7px 0 0;color:#fff;}
+.inv-col-list{flex:1;overflow-y:auto;padding:6px 0;}
+.inv-item{padding:8px 12px;cursor:pointer;font-size:13px;border-left:3px solid transparent;transition:.12s;}
+.inv-item:hover{background:var(--surface2);color:var(--orange);}
+.inv-item.sel{border-left-color:var(--orange);background:var(--surface2);font-weight:600;color:var(--orange);}
+.inv-item-count{float:right;font-size:11px;color:var(--muted);}
+.spool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:4px 0;}
+.spool-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;transition:.12s;position:relative;}
+.spool-card:hover{border-color:var(--green2);}
+.spool-dot{width:32px;height:32px;border-radius:50%;margin-bottom:8px;border:2px solid rgba(255,255,255,.15);}
+.spool-name{font-size:12px;font-weight:600;margin-bottom:2px;}
+.spool-meta{font-size:11px;color:var(--muted);}
+.spool-weight{position:absolute;top:10px;right:10px;font-size:11px;background:var(--surface2);padding:2px 6px;border-radius:10px;}
+.spool-low{border-color:var(--warn)!important;}
+.spool-low::after{content:'LOW';position:absolute;bottom:8px;right:8px;font-size:9px;background:var(--warn);color:#fff;padding:1px 5px;border-radius:8px;}
+
+/* ─── GALLERY ─────────────────────────────────────── */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;}
+.gallery-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:.15s;}
+.gallery-card:hover{border-color:var(--green2);transform:translateY(-1px);}
+.gallery-img{width:100%;height:150px;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:32px;}
+.gallery-img img{width:100%;height:100%;object-fit:cover;}
+.gallery-info{padding:10px 12px;}
+.gallery-title{font-size:13px;font-weight:600;margin-bottom:4px;}
+.gallery-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.tag{display:inline-block;padding:1px 7px;border-radius:12px;font-size:10px;background:var(--green);color:#fff;}
+.tag.issue{background:var(--danger);}
+.tag.setting{background:var(--info);}
+
+/* ─── SCANNER ─────────────────────────────────────── */
+#scanner-view{position:relative;width:100%;max-width:400px;margin:0 auto;}
+#scanner-view video{width:100%;border-radius:8px;}
+#scanner-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;height:40%;border:2px solid var(--orange);border-radius:4px;pointer-events:none;}
+#scanner-overlay::before,#scanner-overlay::after{content:'';position:absolute;background:var(--orange);}
+#scanner-result{background:var(--surface2);padding:10px;border-radius:6px;margin-top:10px;font-family:monospace;font-size:13px;min-height:36px;}
+
+/* ─── CHART ───────────────────────────────────────── */
+.chart-wrap{position:relative;height:260px;}
+
+/* ─── FULFILLMENT ─────────────────────────────────── */
+.checklist-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+.checklist-item:last-child{border:none;}
+.checklist-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--orange);}
+.checklist-item label{flex:1;cursor:pointer;}
+.checklist-item label.done{text-decoration:line-through;color:var(--muted);}
+.checklist-order{font-size:11px;color:var(--muted);padding:4px 8px;background:var(--surface2);border-radius:4px;}
+
+/* ─── UTILS ───────────────────────────────────────── */
+.view{display:none;}.view.active{display:block;}
+.mt16{margin-top:16px;}.mt24{margin-top:24px;}.mb16{margin-bottom:16px;}
+.flex{display:flex;}.gap8{gap:8px;}.gap16{gap:16px;}.items-center{align-items:center;}.justify-between{justify-content:space-between;}
+.text-right{text-align:right;}.text-muted{color:var(--muted);}.text-orange{color:var(--orange);}
+.font-mono{font-family:monospace;}.font-sm{font-size:12px;}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-state .icon{font-size:40px;margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--green);padding:12px 18px;border-radius:8px;z-index:999;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:slideIn .2s ease;}
+.toast.err{border-left-color:var(--danger);}
+.toast.warn{border-left-color:var(--yellow);}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;gap:4px;}
+.tab-btn{padding:8px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-size:13px;transition:.15s;margin-bottom:-1px;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--orange);border-bottom-color:var(--orange);font-weight:600;}
+.section-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<aside id="sidebar">
+  <div class="logo">
+    <h1>⬡ NS3DW</h1>
+    <span>Natural State 3D Works</span>
+  </div>
+  <nav>
+    <div class="nav-item active" data-view="dashboard"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" data-view="orders"><span class="nav-icon">📋</span> Orders</div>
+    <div class="nav-item" data-view="frg"><span class="nav-icon">🪖</span> FRG Orders</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-view="inventory"><span class="nav-icon">🎯</span> Inventory</div>
+    <div class="nav-item" data-view="gallery"><span class="nav-icon">📸</span> Print Gallery</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-view="fulfillment"><span class="nav-icon">✅</span> Fulfillment</div>
+    <div class="nav-item" data-view="pricing"><span class="nav-icon">💰</span> Pricing Calc</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-view="square"><span class="nav-icon">🟦</span> Square Sales</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-view="purchases"><span class="nav-icon">🛒</span> Purchases</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-view="glossary"><span class="nav-icon">📖</span> Glossary</div>
+  </nav>
+  <div class="sidebar-foot">
+    NS3DW Master 2026
+    <div id="sync-status"><div class="dot" id="sync-dot"></div><span id="sync-text">Connecting…</span></div>
+  </div>
+</aside>
+
+<!-- ═══════════════════ MAIN ═══════════════════════ -->
+<div id="main">
+  <div class="topbar">
+    <h2 id="view-title">Dashboard</h2>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">⟳ Refresh</button>
+      <button class="btn btn-orange btn-sm" id="primary-action" onclick="handlePrimaryAction()">+ New Order</button>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="view-dashboard" class="view active">
+      <div class="kpi-grid" id="kpi-row">
+        <div class="kpi"><div class="kpi-label">Active Orders</div><div class="kpi-value" id="kpi-active">—</div><div class="kpi-sub">In progress</div></div>
+        <div class="kpi orange"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-revenue">—</div><div class="kpi-sub">All time</div></div>
+        <div class="kpi yellow"><div class="kpi-label">Gross Profit</div><div class="kpi-value" id="kpi-profit">—</div><div class="kpi-sub">Rev minus material</div></div>
+        <div class="kpi info"><div class="kpi-label" id="kpi-frg-label">FRG Orders</div><div class="kpi-value" id="kpi-frg">—</div><div class="kpi-sub">Fundraiser line items</div></div>
+        <div class="kpi"><div class="kpi-label">Customers</div><div class="kpi-value" id="kpi-customers">—</div><div class="kpi-sub">Unique accounts</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="section-title">Revenue by Month</div>
+          <div class="chart-wrap"><canvas id="revenue-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Order Status Breakdown</div>
+          <div class="chart-wrap"><canvas id="status-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="card mt16">
+        <div class="section-title">Recent Orders</div>
+        <div class="table-wrap">
+          <table id="dash-orders-table">
+            <thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="dash-orders-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ORDERS ── -->
+    <div id="view-orders" class="view">
+      <div class="filters">
+        <div class="search-box"><span class="search-icon">🔍</span><input type="text" id="orders-search" placeholder="Search orders…" oninput="filterOrders()"></div>
+        <select id="orders-status-filter" onchange="filterOrders()">
+          <option value="">All Statuses</option>
+          <option>New</option><option>In Progress</option><option>Ready</option><option>Complete</option><option>Cancelled</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Order ID</th><th>Date</th><th>Customer</th><th>Product</th><th>Qty</th><th>Total</th><th>Cost</th><th>Profit</th><th>Status</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── FRG ORDERS ── -->
+    <div id="view-frg" class="view">
+      <div class="filters">
+        <div class="search-box"><span class="search-icon">🔍</span><input type="text" id="frg-search" placeholder="Search FRG orders…" oninput="filterFRG()"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr id="frg-head"></tr></thead>
+          <tbody id="frg-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── INVENTORY ── -->
+    <div id="view-inventory" class="view">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="invTab('browser',this)">📦 Browser</button>
+        <button class="tab-btn" onclick="invTab('scanner',this)">📷 Barcode Scanner</button>
+        <button class="tab-btn" onclick="invTab('labels',this)">🏷️ QR Labels</button>
+        <button class="tab-btn" onclick="invTab('add',this)">➕ Add Spool</button>
+      </div>
+
+      <!-- Browser tab -->
+      <div id="inv-browser" class="inv-tab-content">
+        <div class="inv-tree" id="inv-tree">
+          <div class="inv-col">
+            <div class="inv-col-head">Category</div>
+            <div class="inv-col-list" id="inv-cats"></div>
+          </div>
+          <div class="inv-col">
+            <div class="inv-col-head">Brand</div>
+            <div class="inv-col-list" id="inv-brands"></div>
+          </div>
+          <div class="inv-col">
+            <div class="inv-col-head">Type</div>
+            <div class="inv-col-list" id="inv-types"></div>
+          </div>
+          <div class="inv-col" style="flex:1;min-width:300px;">
+            <div class="inv-col-head">Spools</div>
+            <div class="inv-col-list" id="inv-spools-wrap" style="padding:12px;">
+              <div class="empty-state"><div class="icon">🎯</div>Select a type to view spools</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scanner tab -->
+      <div id="inv-scanner" class="inv-tab-content" style="display:none;">
+        <div style="max-width:440px;margin:0 auto;">
+          <div id="scanner-view">
+            <video id="scanner-video" autoplay playsinline muted></video>
+            <div id="scanner-overlay"></div>
+          </div>
+          <div id="scanner-result">Waiting for barcode…</div>
+          <div class="flex gap8 mt16">
+            <button class="btn btn-primary" onclick="startScanner()">📷 Start Camera</button>
+            <button class="btn btn-ghost" onclick="stopScanner()">■ Stop</button>
+            <input type="text" id="manual-barcode" placeholder="Or enter barcode manually…" style="flex:1;" onkeydown="if(e.key==='Enter')lookupBarcode(this.value)">
+            <button class="btn btn-orange" onclick="lookupBarcode(document.getElementById('manual-barcode').value)">Lookup</button>
+          </div>
+          <div id="scanner-detail" class="card mt16" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- QR Labels tab -->
+      <div id="inv-labels" class="inv-tab-content" style="display:none;">
+        <div class="card" style="max-width:500px;">
+          <div class="section-title">Generate QR Label</div>
+          <div class="form-grid">
+            <div class="form-row"><label>Spool ID / Barcode</label><input type="text" id="qr-spool-id" placeholder="e.g. SPL-001"></div>
+            <div class="form-row"><label>Brand</label><input type="text" id="qr-brand" placeholder="Bambu, Hatchbox…"></div>
+            <div class="form-row"><label>Type</label><input type="text" id="qr-type" placeholder="PLA, PETG, ABS…"></div>
+            <div class="form-row"><label>Color</label><input type="text" id="qr-color" placeholder="Black, White…"></div>
+            <div class="form-row"><label>Weight (g)</label><input type="number" id="qr-weight" placeholder="1000"></div>
+            <div class="form-row"><label>Cost</label><input type="number" id="qr-cost" placeholder="18.99" step="0.01"></div>
+          </div>
+          <button class="btn btn-orange" onclick="generateQR()">Generate Label</button>
+          <div id="qr-output" class="mt16" style="display:none;">
+            <div style="background:#fff;padding:16px;border-radius:8px;display:inline-block;text-align:center;">
+              <div id="qr-canvas"></div>
+              <div id="qr-label-text" style="margin-top:8px;font-size:11px;color:#000;max-width:160px;"></div>
+            </div>
+            <div class="flex gap8 mt16">
+              <button class="btn btn-primary" onclick="printQR()">🖨️ Print Label</button>
+              <button class="btn btn-ghost" onclick="saveSpoolFromQR()">💾 Save to Inventory</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Spool tab -->
+      <div id="inv-add" class="inv-tab-content" style="display:none;">
+        <div class="card" style="max-width:560px;">
+          <div class="section-title">Add New Spool</div>
+          <div class="form-grid g3">
+            <div class="form-row"><label>Spool ID</label><input type="text" id="add-spool-id" placeholder="Auto-generate or enter"></div>
+            <div class="form-row"><label>Category</label>
+              <select id="add-cat">
+                <option>Filament</option><option>Resin</option><option>Accessories</option>
+              </select>
+            </div>
+            <div class="form-row"><label>Brand</label><input type="text" id="add-brand" placeholder="Bambu, Hatchbox, eSun…"></div>
+            <div class="form-row"><label>Material Type</label>
+              <select id="add-type">
+                <option>PLA</option><option>PLA+</option><option>PETG</option><option>ABS</option><option>ASA</option><option>TPU</option><option>PLA-CF</option><option>PETG-CF</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-row"><label>Color</label><input type="text" id="add-color" placeholder="Black, White, Red…"></div>
+            <div class="form-row"><label>Hex Color</label><input type="color" id="add-hex" value="#333333" style="height:38px;padding:2px;"></div>
+            <div class="form-row"><label>Net Weight (g)</label><input type="number" id="add-weight" placeholder="1000" step="1"></div>
+            <div class="form-row"><label>Remaining (g)</label><input type="number" id="add-remaining" placeholder="1000" step="1"></div>
+            <div class="form-row"><label>Cost ($)</label><input type="number" id="add-cost" placeholder="18.99" step="0.01"></div>
+            <div class="form-row"><label>Purchase Date</label><input type="date" id="add-date"></div>
+            <div class="form-row"><label>Barcode / UPC</label><input type="text" id="add-barcode" placeholder="Scan or enter UPC"></div>
+            <div class="form-row"><label>MakerWorld Profile</label><input type="text" id="add-mw" placeholder="Profile URL or ID"></div>
+          </div>
+          <div class="form-row"><label>Notes</label><textarea id="add-notes" rows="2" placeholder="Nozzle temp, bed temp, dry time…"></textarea></div>
+          <button class="btn btn-orange mt16" onclick="addSpool()">💾 Save Spool</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GALLERY ── -->
+    <div id="view-gallery" class="view">
+      <div class="filters">
+        <div class="search-box"><span class="search-icon">🔍</span><input type="text" id="gallery-search" placeholder="Search by tag, order, issue…" oninput="filterGallery()"></div>
+        <select id="gallery-tag-filter" onchange="filterGallery()">
+          <option value="">All Tags</option>
+          <option>stringing</option><option>layer separation</option><option>warping</option><option>elephant foot</option><option>perfect</option><option>test print</option>
+        </select>
+        <button class="btn btn-orange" onclick="openUploadModal()">📷 Upload Photo</button>
+      </div>
+      <div class="gallery-grid" id="gallery-grid">
+        <div class="empty-state" style="grid-column:1/-1"><div class="icon">📸</div>No prints yet — upload your first!</div>
+      </div>
+    </div>
+
+    <!-- ── FULFILLMENT ── -->
+    <div id="view-fulfillment" class="view">
+      <div class="filters">
+        <select id="fulfill-order-filter" onchange="loadFulfillment()">
+          <option value="">All Active Orders</option>
+        </select>
+      </div>
+      <div class="card">
+        <div id="fulfillment-list">
+          <div class="empty-state"><div class="icon">✅</div>Select an order above or load all active orders</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PRICING CALC ── -->
+    <div id="view-pricing" class="view">
+      <div class="grid2">
+        <div class="card">
+          <div class="section-title">Material Cost</div>
+          <div class="form-row"><label>Filament Type</label>
+            <select id="pc-type" onchange="calcPrice()">
+              <option value="0.018">PLA — $18/kg avg</option>
+              <option value="0.020">PLA+ — $20/kg avg</option>
+              <option value="0.022">PETG — $22/kg avg</option>
+              <option value="0.025">ABS/ASA — $25/kg avg</option>
+              <option value="0.030">PLA-CF — $30/kg avg</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+          <div class="form-row" id="pc-custom-row" style="display:none;"><label>Custom Cost per gram ($)</label><input type="number" id="pc-custom" placeholder="0.020" step="0.001" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Print Weight (grams)</label><input type="number" id="pc-weight" placeholder="45" step="0.1" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Quantity</label><input type="number" id="pc-qty" placeholder="1" value="1" step="1" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Print Time (hrs)</label><input type="number" id="pc-hrs" placeholder="4" step="0.5" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Electricity ($/hr)</label><input type="number" id="pc-elec" placeholder="0.08" value="0.08" step="0.01" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Labor / Design ($/hr)</label><input type="number" id="pc-labor" placeholder="0" value="0" step="0.5" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Markup %</label><input type="number" id="pc-markup" placeholder="60" value="60" step="5" oninput="calcPrice()"></div>
+          <div class="form-row"><label>Shipping</label><input type="number" id="pc-ship" placeholder="0" value="0" step="0.25" oninput="calcPrice()"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Price Breakdown</div>
+          <table style="width:100%;">
+            <tr><td style="padding:8px 0;color:var(--muted);">Material cost</td><td class="text-right" id="pc-r-mat">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Electricity</td><td class="text-right" id="pc-r-elec">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Labor</td><td class="text-right" id="pc-r-labor">—</td></tr>
+            <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;font-weight:600;">Total Cost</td><td class="text-right font-mono" id="pc-r-cost">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Markup (×)</td><td class="text-right" id="pc-r-markup">—</td></tr>
+            <tr style="border-top:1px solid var(--orange);"><td style="padding:8px 0;font-weight:700;font-size:16px;">Suggested Price</td><td class="text-right font-mono text-orange" id="pc-r-price" style="font-size:22px;font-weight:700;">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Per Unit</td><td class="text-right" id="pc-r-unit">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Profit margin</td><td class="text-right" id="pc-r-margin">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">Gross profit</td><td class="text-right" id="pc-r-gp">—</td></tr>
+            <tr><td style="padding:8px 0;color:var(--muted);">With shipping</td><td class="text-right text-orange" id="pc-r-total">—</td></tr>
+          </table>
+          <div class="mt24">
+            <div class="section-title">Cost per gram reference</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.9;">
+              $15/kg = <strong>$0.015/g</strong> &nbsp;|&nbsp; $18/kg = <strong>$0.018/g</strong><br>
+              $20/kg = <strong>$0.020/g</strong> &nbsp;|&nbsp; $25/kg = <strong>$0.025/g</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Square Sales View ──────────────────────── -->
+    <div id="view-square" class="view">
+      <div class="kpi-row" id="sq-kpis">
+        <div class="kpi-card"><div class="kpi-label">Total Revenue</div><div class="kpi-val text-orange" id="sq-revenue">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Transactions</div><div class="kpi-val" id="sq-txns">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Avg Transaction</div><div class="kpi-val" id="sq-avg">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Fees</div><div class="kpi-val" id="sq-fees">—</div></div>
+        <div class="kpi-card"><div class="kpi-label">Net Payout</div><div class="kpi-val" id="sq-net">—</div></div>
+      </div>
+      <div class="card mt16">
+        <div class="section-title">Payment History</div>
+        <div style="overflow-x:auto;">
+          <table id="sq-table" class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Fee</th>
+                <th>Net</th>
+                <th>Source</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="sq-tbody">
+              <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">No Square data yet — refresh to load</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══════════ MODALS ═══════════════════════════ -->
+
+<!-- Order Modal -->
+<div class="overlay" id="order-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="order-modal-title">New Order</h3>
+      <button class="close-btn" onclick="closeModal('order-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-row-index">
+      <div class="form-grid">
+        <div class="form-row"><label>Order ID</label><input type="text" id="f-order-id" placeholder="Auto-generated"></div>
+        <div class="form-row"><label>Date *</label><input type="date" id="f-date"></div>
+        <div class="form-row"><label>Customer *</label><input type="text" id="f-customer" placeholder="Name or org"></div>
+        <div class="form-row"><label>Product / Description *</label><input type="text" id="f-product" placeholder="Keychains, dog tags…"></div>
+        <div class="form-row"><label>Quantity</label><input type="number" id="f-qty" value="1" min="1"></div>
+        <div class="form-row"><label>Unit Price ($)</label><input type="number" id="f-price" placeholder="12.00" step="0.01" oninput="calcOrderTotals()"></div>
+        <div class="form-row"><label>Total ($)</label><input type="number" id="f-total" placeholder="Auto" step="0.01"></div>
+        <div class="form-row"><label>Material Cost ($)</label><input type="number" id="f-cost" placeholder="0.00" step="0.01" oninput="calcOrderTotals()"></div>
+        <div class="form-row"><label>Profit ($)</label><input type="number" id="f-profit" placeholder="Auto" step="0.01" readonly style="opacity:.6;"></div>
+        <div class="form-row"><label>Status</label>
+          <select id="f-status">
+            <option>New</option><option>In Progress</option><option>Ready</option><option>Complete</option><option>Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row"><label>Notes</label><textarea id="f-notes" placeholder="Any details…"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('order-modal')">Cancel</button>
+      <button class="btn btn-orange" onclick="saveOrder()">💾 Save Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- Photo Upload Modal -->
+<div class="overlay" id="upload-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Upload Print Photo</h3>
+      <button class="close-btn" onclick="closeModal('upload-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Photo *</label>
+        <input type="file" id="upload-file" accept="image/*" onchange="previewPhoto(this)">
+      </div>
+      <div id="upload-preview" style="margin:10px 0;display:none;">
+        <img id="preview-img" style="max-width:100%;border-radius:8px;max-height:200px;object-fit:cover;">
+      </div>
+      <div class="form-grid">
+        <div class="form-row"><label>Order ID</label><input type="text" id="upload-order" placeholder="NS3D-001"></div>
+        <div class="form-row"><label>Print Title</label><input type="text" id="upload-title" placeholder="e.g. RPD Dog Tags batch 1"></div>
+        <div class="form-row"><label>Filament Used</label><input type="text" id="upload-filament" placeholder="Bambu PLA Black"></div>
+        <div class="form-row"><label>Print Quality</label>
+          <select id="upload-quality">
+            <option>Perfect</option><option>Good</option><option>Issues - Minor</option><option>Issues - Major</option><option>Failed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Tags (comma separated)</label>
+        <input type="text" id="upload-tags" placeholder="stringing, 0.2mm, 220°C, test print…">
+      </div>
+      <div class="form-row"><label>Notes</label><textarea id="upload-notes" placeholder="Settings, issues, observations…" rows="3"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('upload-modal')">Cancel</button>
+      <button class="btn btn-orange" onclick="uploadPhoto()" id="upload-btn">📤 Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Spool Detail Modal -->
+<div class="overlay" id="spool-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="spool-modal-title">Spool Detail</h3>
+      <button class="close-btn" onclick="closeModal('spool-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="spool-modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('spool-modal')">Close</button>
+      <button class="btn btn-orange" id="spool-qr-btn">🏷️ Print QR Label</button>
+      <button class="btn btn-danger btn-sm" id="spool-delete-btn">🗑 Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════
+const API = 'https://script.google.com/macros/s/AKfycbwhrd-AFQosDcqP1kehPapQB5BGWmlLjOkRDVkwi7XV8RB-0yfeMXbj0LrARL6A2UIkOw/exec';
+
+// ─── State ────────────────────────────────────────────
+let state = {
+  orders: [], frg: [], inventory: [], customers: [], gallery: [],
+  squarePayments: [],
+  loading: false,
+  invSel: { cat: null, brand: null, type: null }
+};
+let revenueChart = null, statusChart = null;
+let scanStream = null;
+let currentQRData = null;
+
+// ═══════════════════════════════════════════════════════
+// API LAYER
+// ═══════════════════════════════════════════════════════
+async function apiGet(action, params = {}) {
+  let url = API + '?action=' + action;
+  for (const [k, v] of Object.entries(params)) url += '&' + k + '=' + encodeURIComponent(v);
+  const res = await fetch(url, { redirect: 'follow' });
+  return res.json();
+}
+
+async function apiPost(data) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    redirect: 'follow'
+  });
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════
+// SYNC / LOAD ALL DATA
+// ═══════════════════════════════════════════════════════
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  dot.className = 'dot ' + status;
+  txt.textContent = status === 'ok' ? 'Synced' : status === 'loading' ? 'Syncing…' : 'Offline';
+}
+
+async function refreshAll() {
+  setSyncStatus('loading');
+  try {
+    const resp = await apiGet('getAllData');
+    if (resp.error) throw new Error(resp.error);
+    // Apps Script wraps sheet data under resp.data — fall back to flat for older deployments
+    const data = resp.data || resp;
+
+    // Parse each sheet
+    state.orders         = parseSheet(data.Orders || []);
+    state.frg            = parseSheet(data.FRG_Orders || []);
+    state.inventory      = parseSheet(data.Inventory || []);
+    state.customers      = parseSheet(data.Customers || []);
+    state.squarePayments = parseSheet(data.Square_Payments || []);
+
+    setSyncStatus('ok');
+    renderAll();
+    toast('Data synced ✓');
+  } catch (e) {
+    setSyncStatus('err');
+    toast('Sync failed: ' + e.message, 'err');
+    console.error(e);
+  }
+}
+
+function parseSheet(sheetData) {
+  if (!sheetData || sheetData.length < 2) return [];
+  // If row 0 looks like a title (only 1 non-empty cell), skip it and use row 1 as headers
+  let headerRowIdx = 0;
+  const row0NonEmpty = sheetData[0].filter(c => c !== '' && c != null).length;
+  if (row0NonEmpty <= 1 && sheetData.length > 2) headerRowIdx = 1;
+  const headers = sheetData[headerRowIdx];
+  return sheetData.slice(headerRowIdx + 1).map((row, i) => {
+    const obj = { _rowIndex: headerRowIdx + i + 2 };
+    headers.forEach((h, j) => obj[h] = row[j] ?? '');
+    return obj;
+  }).filter(r => Object.values(r).some(v => v !== '' && v !== undefined));
+}
+
+function renderAll() {
+  renderDashboard();
+  renderOrdersTable();
+  renderFRG();
+  renderInventory();
+  renderFulfillmentFilter();
+  renderSquare();
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+const viewMeta = {
+  dashboard:   { title: 'Dashboard',       action: null },
+  orders:      { title: 'Orders',          action: '+ New Order' },
+  frg:         { title: 'FRG Orders',      action: null },
+  inventory:   { title: 'Inventory',       action: '+ Add Spool' },
+  gallery:     { title: 'Print Gallery',   action: '📷 Upload' },
+  fulfillment: { title: 'Fulfillment',     action: null },
+  pricing:     { title: 'Pricing Calc',    action: null },
+  square:      { title: 'Square Sales',    action: null },
+  purchases:   { title: 'Purchases',       action: null },
+  glossary:    { title: 'Glossary',        action: null },
+};
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    const view = el.dataset.view;
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + view).classList.add('active');
+    const meta = viewMeta[view];
+    document.getElementById('view-title').textContent = meta.title;
+    const btn = document.getElementById('primary-action');
+    if (meta.action) { btn.textContent = meta.action; btn.style.display = ''; }
+    else btn.style.display = 'none';
+    if (view === 'pricing') calcPrice();
+    if (view === 'glossary') {
+      const container = document.getElementById('view-glossary');
+      if (container && typeof Glossary !== 'undefined') Glossary.renderFullPage(container);
+    }
+  });
+});
+
+// Listen for "open full page" event fired from the glossary slide-out panel
+document.addEventListener('glossary:open-full-page', (e) => {
+  const navItem = document.querySelector('[data-view="glossary"]');
+  if (navItem) navItem.click();
+  if (e.detail && e.detail.term) {
+    setTimeout(() => {
+      const container = document.getElementById('view-glossary');
+      if (container) Glossary.renderFullPage(container, e.detail.term);
+    }, 50);
+  }
+});
+
+function handlePrimaryAction() {
+  const active = document.querySelector('.nav-item.active')?.dataset.view;
+  if (active === 'orders') openOrderModal();
+  else if (active === 'inventory') invTab('add', document.querySelector('.tab-btn'));
+  else if (active === 'gallery') openUploadModal();
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDashboard() {
+  const orders = state.orders;
+  const frg    = state.frg;
+  const active = orders.filter(o => ['New','In Progress','Ready'].includes(o.Status));
+  const revenue = orders.reduce((s, o) => s + (parseFloat(o.Total) || 0), 0);
+  const profit  = orders.reduce((s, o) => s + (parseFloat(o.Profit) || 0), 0);
+
+  document.getElementById('kpi-active').textContent   = active.length;
+  document.getElementById('kpi-revenue').textContent  = '$' + revenue.toFixed(2);
+  document.getElementById('kpi-profit').textContent   = '$' + profit.toFixed(2);
+  document.getElementById('kpi-frg').textContent      = frg.length;
+  document.getElementById('kpi-customers').textContent= state.customers.length || new Set(orders.map(o=>o.Customer)).size;
+
+  // Recent orders table
+  const tbody = document.getElementById('dash-orders-body');
+  const recent = [...orders].sort((a,b) => new Date(b.Date||0) - new Date(a.Date||0)).slice(0, 8);
+  tbody.innerHTML = recent.map(o => `
+    <tr>
+      <td class="font-mono">${o['Order ID']||o.OrderID||''}</td>
+      <td>${o.Customer||''}</td>
+      <td>${o.Product||o['Product/Description']||''}</td>
+      <td>$${parseFloat(o.Total||0).toFixed(2)}</td>
+      <td>${statusBadge(o.Status)}</td>
+      <td class="text-muted">${fmtDate(o.Date)}</td>
+    </tr>`).join('') || `<tr><td colspan="6" class="empty-state">No orders yet</td></tr>`;
+
+  buildRevenueChart(orders);
+  buildStatusChart(orders);
+}
+
+function buildRevenueChart(orders) {
+  const months = {};
+  orders.forEach(o => {
+    if (!o.Date) return;
+    const d = new Date(o.Date);
+    if (isNaN(d)) return;
+    const k = d.toLocaleString('default', {month:'short', year:'2-digit'});
+    months[k] = (months[k] || 0) + (parseFloat(o.Total) || 0);
+  });
+  const labels = Object.keys(months);
+  const values = labels.map(k => months[k]);
+  const ctx = document.getElementById('revenue-chart');
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Revenue', data: values, backgroundColor: '#3D5447', borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { color: '#777' }, grid: { color: '#2a2a2a' } }, y: { ticks: { color: '#777', callback: v => '$'+v }, grid: { color: '#2a2a2a' } } } }
+  });
+}
+
+function buildStatusChart(orders) {
+  const counts = {};
+  orders.forEach(o => { counts[o.Status || 'Unknown'] = (counts[o.Status||'Unknown']||0) + 1; });
+  const ctx = document.getElementById('status-chart');
+  if (statusChart) statusChart.destroy();
+  statusChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(counts),
+      datasets: [{ data: Object.values(counts), backgroundColor: ['#3D5447','#D4621A','#F6C90E','#4A6358','#555'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#ccc', boxWidth: 12 } } } }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SQUARE SALES
+// ═══════════════════════════════════════════════════════
+function renderSquare() {
+  const pmts = state.squarePayments;
+  const tbody = document.getElementById('sq-tbody');
+  if (!pmts || pmts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">No Square data — click ⟳ Refresh to load</td></tr>';
+    document.getElementById('sq-revenue').textContent = '—';
+    document.getElementById('sq-txns').textContent    = '—';
+    document.getElementById('sq-avg').textContent     = '—';
+    document.getElementById('sq-fees').textContent    = '—';
+    document.getElementById('sq-net').textContent     = '—';
+    return;
+  }
+
+  // KPIs — column names in sheet use "($)" suffix
+  const totalRev  = pmts.reduce((s, p) => s + (parseFloat(p['Amount ($)'] || p.Amount)  || 0), 0);
+  const totalFees = pmts.reduce((s, p) => s + (parseFloat(p['Fee ($)']    || p.Fee)     || 0), 0);
+  const totalNet  = pmts.reduce((s, p) => s + (parseFloat(p['Net ($)']    || p.Net)     || 0), 0);
+  const avg = pmts.length ? totalRev / pmts.length : 0;
+
+  document.getElementById('sq-revenue').textContent = '$' + totalRev.toFixed(2);
+  document.getElementById('sq-txns').textContent    = pmts.length;
+  document.getElementById('sq-avg').textContent     = '$' + avg.toFixed(2);
+  document.getElementById('sq-fees').textContent    = '$' + totalFees.toFixed(2);
+  document.getElementById('sq-net').textContent     = '$' + totalNet.toFixed(2);
+
+  // Sort newest first
+  const sorted = [...pmts].sort((a, b) => new Date(b.Date || 0) - new Date(a.Date || 0));
+
+  tbody.innerHTML = sorted.map(p => {
+    const amt    = parseFloat(p['Amount ($)'] || p.Amount || 0).toFixed(2);
+    const fee    = parseFloat(p['Fee ($)']    || p.Fee    || 0).toFixed(2);
+    const net    = parseFloat(p['Net ($)']    || p.Net    || 0).toFixed(2);
+    const name   = p.Name  || p['Customer Name'] || '—';
+    const src    = p.Source|| p['Payment Source'] || '—';
+    const status = p.Status || '—';
+    const date   = fmtDate(p.Date);
+    const statusClass = status === 'COMPLETED' ? 'status-complete' : status === 'FAILED' ? 'status-cancelled' : '';
+    return `<tr>
+      <td class="text-muted font-sm" style="white-space:nowrap;">${date}</td>
+      <td>${name}</td>
+      <td class="font-mono text-orange">$${amt}</td>
+      <td class="font-mono text-muted">$${fee}</td>
+      <td class="font-mono">$${net}</td>
+      <td class="font-sm">${src}</td>
+      <td><span class="badge ${statusClass}">${status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// ORDERS
+// ═══════════════════════════════════════════════════════
+function renderOrdersTable(filter = '') {
+  const search = (filter || document.getElementById('orders-search')?.value || '').toLowerCase();
+  const statusF = document.getElementById('orders-status-filter')?.value || '';
+  let rows = state.orders;
+  if (search) rows = rows.filter(o => JSON.stringify(o).toLowerCase().includes(search));
+  if (statusF) rows = rows.filter(o => o.Status === statusF);
+
+  document.getElementById('orders-body').innerHTML = rows.map(o => {
+    const oid   = o['Order ID'] || o.OrderID || '';
+    const prod  = o.Product || o['Product/Description'] || '';
+    const total = parseFloat(o.Total||0).toFixed(2);
+    const cost  = parseFloat(o.Cost||0).toFixed(2);
+    const prof  = parseFloat(o.Profit||0).toFixed(2);
+    return `<tr>
+      <td class="font-mono" style="white-space:nowrap;">${oid}</td>
+      <td class="text-muted font-sm">${fmtDate(o.Date)}</td>
+      <td>${o.Customer||''}</td>
+      <td>${prod}</td>
+      <td>${o.Qty||o.Quantity||1}</td>
+      <td>$${total}</td>
+      <td class="text-muted">$${cost}</td>
+      <td style="color:#4caf50;">$${prof}</td>
+      <td>${statusBadge(o.Status)}</td>
+      <td class="text-muted font-sm" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;">${o.Notes||''}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editOrder(${o._rowIndex})">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickStatus('${oid}',${o._rowIndex})">↻</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="11" class="empty-state" style="padding:40px;">No orders found</td></tr>`;
+}
+
+function filterOrders() { renderOrdersTable(); }
+
+function openOrderModal(rowIndex = null) {
+  const modal = document.getElementById('order-modal');
+  document.getElementById('order-modal-title').textContent = rowIndex ? 'Edit Order' : 'New Order';
+  document.getElementById('edit-row-index').value = rowIndex || '';
+  if (rowIndex) {
+    const o = state.orders.find(x => x._rowIndex == rowIndex);
+    if (o) {
+      document.getElementById('f-order-id').value  = o['Order ID'] || o.OrderID || '';
+      document.getElementById('f-date').value      = o.Date || '';
+      document.getElementById('f-customer').value  = o.Customer || '';
+      document.getElementById('f-product').value   = o.Product || o['Product/Description'] || '';
+      document.getElementById('f-qty').value       = o.Qty || o.Quantity || 1;
+      document.getElementById('f-price').value     = o['Unit Price'] || o.UnitPrice || '';
+      document.getElementById('f-total').value     = o.Total || '';
+      document.getElementById('f-cost').value      = o.Cost || '';
+      document.getElementById('f-profit').value    = o.Profit || '';
+      document.getElementById('f-status').value    = o.Status || 'New';
+      document.getElementById('f-notes').value     = o.Notes || '';
+    }
+  } else {
+    ['f-order-id','f-date','f-customer','f-product','f-price','f-total','f-cost','f-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-qty').value = 1;
+    document.getElementById('f-status').value = 'New';
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    const nextNum = Math.max(0, ...state.orders.map(o => parseInt((o['Order ID']||o.OrderID||'').replace(/\D/g,''))||0)) + 1;
+    document.getElementById('f-order-id').value = 'NS3D-' + String(nextNum).padStart(3, '0');
+  }
+  modal.classList.add('open');
+}
+
+function editOrder(rowIndex) { openOrderModal(rowIndex); }
+
+function calcOrderTotals() {
+  const qty   = parseFloat(document.getElementById('f-qty').value) || 1;
+  const price = parseFloat(document.getElementById('f-price').value) || 0;
+  const cost  = parseFloat(document.getElementById('f-cost').value) || 0;
+  if (price) document.getElementById('f-total').value = (qty * price).toFixed(2);
+  const total = parseFloat(document.getElementById('f-total').value) || 0;
+  document.getElementById('f-profit').value = (total - cost).toFixed(2);
+}
+
+async function saveOrder() {
+  const rowIndex = document.getElementById('edit-row-index').value;
+  const values = [
+    document.getElementById('f-order-id').value,
+    document.getElementById('f-date').value,
+    document.getElementById('f-customer').value,
+    document.getElementById('f-product').value,
+    parseInt(document.getElementById('f-qty').value) || 1,
+    parseFloat(document.getElementById('f-price').value) || 0,
+    parseFloat(document.getElementById('f-total').value) || 0,
+    parseFloat(document.getElementById('f-cost').value) || 0,
+    parseFloat(document.getElementById('f-profit').value) || 0,
+    document.getElementById('f-status').value,
+    document.getElementById('f-notes').value,
+  ];
+  if (!values[2] || !values[3]) { toast('Customer and Product are required', 'warn'); return; }
+  try {
+    let res;
+    if (rowIndex) {
+      res = await apiPost({ action: 'updateRow', sheetName: 'Orders', rowIndex: parseInt(rowIndex), values });
+    } else {
+      res = await apiPost({ action: 'appendRow', sheetName: 'Orders', values });
+    }
+    if (res.error) throw new Error(res.error);
+    closeModal('order-modal');
+    toast(rowIndex ? 'Order updated ✓' : 'Order created ✓');
+    await refreshAll();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  }
+}
+
+async function quickStatus(orderId, rowIndex) {
+  const statuses = ['New', 'In Progress', 'Ready', 'Complete', 'Cancelled'];
+  const o = state.orders.find(x => x._rowIndex == rowIndex);
+  const cur = statuses.indexOf(o?.Status);
+  const next = statuses[(cur + 1) % statuses.length];
+  if (!confirm(`Move ${orderId} → "${next}"?`)) return;
+  try {
+    // Find the Status column index (0-based in sheet = col number)
+    const res = await apiPost({ action: 'updateCell', sheetName: 'Orders', row: rowIndex, col: 10, value: next });
+    if (res.error) throw new Error(res.error);
+    toast(`${orderId} → ${next} ✓`);
+    await refreshAll();
+  } catch (e) {
+    toast('Update failed: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FRG ORDERS
+// ═══════════════════════════════════════════════════════
+function renderFRG() {
+  const data = state.frg;
+  if (!data.length) return;
+  const keys = Object.keys(data[0]).filter(k => k !== '_rowIndex');
+
+  document.getElementById('frg-head').innerHTML = keys.map(k => `<th>${k}</th>`).join('') + '<th></th>';
+  document.getElementById('frg-body').innerHTML = filterFRGData(data, '').map(row => `
+    <tr>${keys.map(k => `<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${row[k]||''}">${row[k]||''}</td>`).join('')}
+    <td>${statusBadge(row.Status||'Pending')}</td></tr>`).join('');
+}
+
+function filterFRGData(data, search) {
+  return search ? data.filter(r => JSON.stringify(r).toLowerCase().includes(search)) : data;
+}
+function filterFRG() {
+  const s = document.getElementById('frg-search').value.toLowerCase();
+  const data = filterFRGData(state.frg, s);
+  const keys = state.frg.length ? Object.keys(state.frg[0]).filter(k => k !== '_rowIndex') : [];
+  document.getElementById('frg-body').innerHTML = data.map(row => `
+    <tr>${keys.map(k => `<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="${row[k]||''}">${row[k]||''}</td>`).join('')}
+    <td>${statusBadge(row.Status||'Pending')}</td></tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════════
+function renderInventory() {
+  const inv = state.inventory;
+  // Build category hierarchy
+  const cats = [...new Set(inv.map(s => s.Category || 'Filament'))].sort();
+  const catList = document.getElementById('inv-cats');
+  catList.innerHTML = cats.map(c => {
+    const n = inv.filter(s => (s.Category||'Filament') === c).length;
+    return `<div class="inv-item" onclick="selInv('cat','${c}',this)">${c}<span class="inv-item-count">${n}</span></div>`;
+  }).join('');
+  // Reset
+  state.invSel = { cat: null, brand: null, type: null };
+  document.getElementById('inv-brands').innerHTML = '';
+  document.getElementById('inv-types').innerHTML = '';
+  document.getElementById('inv-spools-wrap').innerHTML = '<div class="empty-state"><div class="icon">🎯</div>Select a type to view spools</div>';
+}
+
+function selInv(level, value, el) {
+  document.querySelectorAll(`#inv-${level}s .inv-item`).forEach(i => i.classList.remove('sel'));
+  el.classList.add('sel');
+  state.invSel[level] = value;
+
+  if (level === 'cat') {
+    state.invSel.brand = null; state.invSel.type = null;
+    const brands = [...new Set(state.inventory.filter(s => (s.Category||'Filament') === value).map(s => s.Brand||'Unknown'))].sort();
+    document.getElementById('inv-brands').innerHTML = brands.map(b => {
+      const n = state.inventory.filter(s => s.Brand === b).length;
+      return `<div class="inv-item" onclick="selInv('brand','${b}',this)">${b}<span class="inv-item-count">${n}</span></div>`;
+    }).join('');
+    document.getElementById('inv-types').innerHTML = '';
+    document.getElementById('inv-spools-wrap').innerHTML = '<div class="empty-state"><div class="icon">🎯</div>Select a type</div>';
+  } else if (level === 'brand') {
+    state.invSel.type = null;
+    const types = [...new Set(state.inventory.filter(s => s.Brand === value).map(s => s.Type || s['Material Type'] || 'PLA'))].sort();
+    document.getElementById('inv-types').innerHTML = types.map(t => {
+      const n = state.inventory.filter(s => s.Brand === value && (s.Type||s['Material Type']) === t).length;
+      return `<div class="inv-item" onclick="selInv('type','${t}',this)">${t}<span class="inv-item-count">${n}</span></div>`;
+    }).join('');
+    document.getElementById('inv-spools-wrap').innerHTML = '<div class="empty-state"><div class="icon">🎯</div>Select a type</div>';
+  } else if (level === 'type') {
+    const spools = state.inventory.filter(s => s.Brand === state.invSel.brand && (s.Type||s['Material Type']) === value);
+    renderSpools(spools);
+  }
+}
+
+function renderSpools(spools) {
+  const wrap = document.getElementById('inv-spools-wrap');
+  if (!spools.length) { wrap.innerHTML = '<div class="empty-state">No spools found</div>'; return; }
+  wrap.innerHTML = '<div class="spool-grid">' + spools.map(s => {
+    const remaining = parseFloat(s.Remaining || s['Remaining (g)'] || s['Net Weight'] || 1000);
+    const netWeight = parseFloat(s['Net Weight'] || s.Weight || 1000);
+    const pct = Math.min(100, (remaining / netWeight) * 100);
+    const isLow = pct < 20;
+    const color = s['Hex Color'] || s.Color || '#888';
+    return `<div class="spool-card ${isLow ? 'spool-low' : ''}" onclick="openSpoolDetail(${s._rowIndex})">
+      <div class="spool-dot" style="background:${color.startsWith('#') ? color : '#888'};"></div>
+      <div class="spool-weight">${remaining}g</div>
+      <div class="spool-name">${s.Color || 'Unknown'}</div>
+      <div class="spool-meta">${s['Spool ID'] || ''}</div>
+      <div style="margin-top:8px;background:var(--border);border-radius:4px;height:4px;">
+        <div style="width:${pct}%;background:${isLow ? '#e65100' : '#3D5447'};height:100%;border-radius:4px;"></div>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function openSpoolDetail(rowIndex) {
+  const s = state.inventory.find(x => x._rowIndex == rowIndex);
+  if (!s) return;
+  const modal = document.getElementById('spool-modal');
+  document.getElementById('spool-modal-title').textContent = `${s.Brand || ''} ${s.Type || s['Material Type'] || ''} — ${s.Color || ''}`;
+  const remaining = parseFloat(s.Remaining || s['Remaining (g)'] || 1000);
+  const netWeight = parseFloat(s['Net Weight'] || 1000);
+  const pct = Math.min(100, (remaining / netWeight) * 100);
+  document.getElementById('spool-modal-body').innerHTML = `
+    <div class="flex gap16 items-center mb16">
+      <div style="width:56px;height:56px;border-radius:50%;background:${s['Hex Color']||'#888'};border:3px solid rgba(255,255,255,.2);flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:18px;font-weight:700;">${s.Color || 'Unknown'}</div>
+        <div class="text-muted">${s.Brand || ''} ${s.Type || s['Material Type'] || ''}</div>
+        <div class="font-sm text-muted">ID: ${s['Spool ID'] || s.SpoolID || '—'}</div>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:6px;height:8px;margin-bottom:16px;">
+      <div style="width:${pct}%;background:${pct<20 ? '#e65100' : '#3D5447'};height:100%;border-radius:6px;"></div>
+    </div>
+    <div class="form-grid">
+      ${detailRow('Remaining', remaining + 'g')} ${detailRow('Net Weight', netWeight + 'g')}
+      ${detailRow('Pct Left', pct.toFixed(0) + '%')} ${detailRow('Cost', '$' + (s.Cost||0))}
+      ${detailRow('Purchase Date', s['Purchase Date']||s.Date||'—')} ${detailRow('Barcode', s.Barcode||s.UPC||'—')}
+      ${detailRow('MakerWorld', s['MakerWorld Profile']||s.MakerWorld||'—')} ${detailRow('Notes', s.Notes||'—')}
+    </div>`;
+  document.getElementById('spool-qr-btn').onclick = () => { closeModal('spool-modal'); switchToQR(s); };
+  document.getElementById('spool-delete-btn').onclick = () => deleteSpool(s._rowIndex);
+  modal.classList.add('open');
+}
+
+function detailRow(label, value) {
+  return `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><div class="font-sm text-muted">${label}</div><div>${value}</div></div>`;
+}
+
+function switchToQR(s) {
+  invTab('labels', null);
+  document.getElementById('qr-spool-id').value  = s['Spool ID'] || s.SpoolID || '';
+  document.getElementById('qr-brand').value      = s.Brand || '';
+  document.getElementById('qr-type').value       = s.Type || s['Material Type'] || '';
+  document.getElementById('qr-color').value      = s.Color || '';
+  document.getElementById('qr-weight').value     = s['Net Weight'] || '';
+  document.getElementById('qr-cost').value       = s.Cost || '';
+  generateQR();
+}
+
+async function addSpool() {
+  const values = [
+    document.getElementById('add-spool-id').value || 'SPL-' + Date.now(),
+    document.getElementById('add-cat').value,
+    document.getElementById('add-brand').value,
+    document.getElementById('add-type').value,
+    document.getElementById('add-color').value,
+    document.getElementById('add-hex').value,
+    parseFloat(document.getElementById('add-weight').value) || 1000,
+    parseFloat(document.getElementById('add-remaining').value) || parseFloat(document.getElementById('add-weight').value) || 1000,
+    parseFloat(document.getElementById('add-cost').value) || 0,
+    document.getElementById('add-date').value || new Date().toISOString().split('T')[0],
+    document.getElementById('add-barcode').value,
+    document.getElementById('add-mw').value,
+    document.getElementById('add-notes').value,
+  ];
+  if (!values[2] || !values[3] || !values[4]) { toast('Brand, Type, Color required', 'warn'); return; }
+  try {
+    const res = await apiPost({ action: 'appendRow', sheetName: 'Inventory', values });
+    if (res.error) throw new Error(res.error);
+    toast('Spool saved ✓');
+    await refreshAll();
+    invTab('browser', document.querySelector('.tab-btn'));
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function deleteSpool(rowIndex) {
+  if (!confirm('Delete this spool record?')) return;
+  try {
+    const res = await apiPost({ action: 'deleteRow', sheetName: 'Inventory', rowIndex });
+    if (res.error) throw new Error(res.error);
+    closeModal('spool-modal');
+    toast('Spool deleted');
+    await refreshAll();
+  } catch (e) { toast('Delete failed: ' + e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// INVENTORY TABS
+// ═══════════════════════════════════════════════════════
+function invTab(tab, btn) {
+  document.querySelectorAll('.inv-tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('inv-' + tab).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else { const btns = document.querySelectorAll('.tab-btn'); if (tab==='labels') btns[2]?.classList.add('active'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// BARCODE SCANNER
+// ═══════════════════════════════════════════════════════
+async function startScanner() {
+  try {
+    const video = document.getElementById('scanner-video');
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = scanStream;
+
+    if (typeof Quagga !== 'undefined') {
+      Quagga.init({
+        inputStream: { name: 'Live', type: 'LiveStream', target: video },
+        decoder: { readers: ['ean_reader','upc_reader','code_128_reader','code_39_reader'] }
+      }, err => {
+        if (err) { toast('Scanner init failed: ' + err, 'err'); return; }
+        Quagga.start();
+        Quagga.onDetected(data => {
+          const code = data.codeResult.code;
+          document.getElementById('scanner-result').textContent = 'Detected: ' + code;
+          stopScanner();
+          lookupBarcode(code);
+        });
+      });
+    } else {
+      document.getElementById('scanner-result').textContent = 'Camera started — enter barcode manually below';
+    }
+    toast('Camera started');
+  } catch (e) {
+    toast('Camera access denied: ' + e.message, 'err');
+  }
+}
+
+function stopScanner() {
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  if (typeof Quagga !== 'undefined') { try { Quagga.stop(); } catch(e){} }
+}
+
+async function lookupBarcode(code) {
+  if (!code) return;
+  document.getElementById('scanner-result').textContent = 'Looking up: ' + code + '…';
+  // Check local inventory first
+  const local = state.inventory.find(s => s.Barcode === code || s.UPC === code || s['Spool ID'] === code);
+  if (local) {
+    showBarcodeResult(local);
+    return;
+  }
+  // Try API lookup
+  try {
+    const res = await apiPost({ action: 'lookupBarcode', barcode: code });
+    if (res.data) showBarcodeResult(res.data);
+    else document.getElementById('scanner-result').textContent = 'Not found: ' + code;
+  } catch (e) {
+    document.getElementById('scanner-result').textContent = 'Not found locally: ' + code;
+  }
+}
+
+let _barcodeEditSpool = null;
+
+function showBarcodeResult(spool) {
+  _barcodeEditSpool = spool;
+  document.getElementById('scanner-result').textContent = 'Found: ' + (spool.Brand||'') + ' ' + (spool.Color||'');
+  const detail = document.getElementById('scanner-detail');
+  detail.style.display = 'block';
+  const hexColor = spool['Hex Color'] || '#888';
+  detail.innerHTML = `
+    <div class="section-title" style="margin-bottom:12px;">Spool Found — Edit if needed</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Brand</label>
+        <input type="text" id="bc-edit-brand" value="${spool.Brand||''}" style="width:100%;">
+      </div>
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Type / Material</label>
+        <input type="text" id="bc-edit-type" value="${spool.Type||spool['Material Type']||''}" style="width:100%;">
+      </div>
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Color</label>
+        <input type="text" id="bc-edit-color" value="${spool.Color||''}" style="width:100%;">
+      </div>
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Remaining (g)</label>
+        <input type="number" id="bc-edit-remaining" value="${spool.Remaining||spool['Net Weight']||''}" step="1" style="width:100%;">
+      </div>
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Hex Color</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="color" id="bc-edit-hex" value="${hexColor.startsWith('#')?hexColor:'#888888'}" style="width:40px;height:32px;padding:2px;cursor:pointer;">
+          <input type="text" id="bc-edit-hex-text" value="${hexColor}" placeholder="#RRGGBB" style="flex:1;">
+        </div>
+      </div>
+      <div class="form-row" style="margin:0;">
+        <label style="font-size:11px;color:var(--muted);">Spool ID (read-only)</label>
+        <input type="text" value="${spool['Spool ID']||'—'}" disabled style="width:100%;opacity:0.5;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-orange" onclick="saveBarcodeEdit()">💾 Save Changes</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('scanner-detail').style.display='none'">Dismiss</button>
+    </div>`;
+
+  // Keep hex text & color picker in sync
+  document.getElementById('bc-edit-hex').addEventListener('input', e => {
+    document.getElementById('bc-edit-hex-text').value = e.target.value;
+  });
+  document.getElementById('bc-edit-hex-text').addEventListener('input', e => {
+    if (/^#[0-9a-fA-F]{6}$/.test(e.target.value))
+      document.getElementById('bc-edit-hex').value = e.target.value;
+  });
+}
+
+async function saveBarcodeEdit() {
+  if (!_barcodeEditSpool) return;
+  const brand     = document.getElementById('bc-edit-brand').value.trim();
+  const type      = document.getElementById('bc-edit-type').value.trim();
+  const color     = document.getElementById('bc-edit-color').value.trim();
+  const remaining = document.getElementById('bc-edit-remaining').value.trim();
+  const hex       = document.getElementById('bc-edit-hex-text').value.trim() || document.getElementById('bc-edit-hex').value;
+
+  if (!brand) { toast('Brand is required', 'err'); return; }
+
+  const rowIdx = _barcodeEditSpool._rowIndex;
+  if (rowIdx == null) { toast('Cannot save — no row index found', 'err'); return; }
+
+  try {
+    const res = await apiPost('updateInventoryRow', {
+      rowIndex: rowIdx,
+      updates: { Brand: brand, Type: type, Color: color, Remaining: remaining, 'Hex Color': hex }
+    });
+    if (res && res.success) {
+      // Update local state too
+      const inv = state.inventory.find(s => s._rowIndex === rowIdx);
+      if (inv) {
+        inv.Brand = brand; inv.Type = type; inv.Color = color;
+        inv.Remaining = remaining; inv['Hex Color'] = hex;
+      }
+      _barcodeEditSpool = null;
+      document.getElementById('scanner-detail').style.display = 'none';
+      document.getElementById('scanner-result').textContent = 'Saved: ' + brand + ' ' + color;
+      toast('Spool updated', 'ok');
+      renderInventory();
+    } else {
+      toast(res?.error || 'Save failed', 'err');
+    }
+  } catch (e) {
+    toast('Save error: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// QR LABEL GENERATOR
+// ═══════════════════════════════════════════════════════
+function generateQR() {
+  const spoolId = document.getElementById('qr-spool-id').value || 'SPL-' + Date.now();
+  const brand   = document.getElementById('qr-brand').value;
+  const type    = document.getElementById('qr-type').value;
+  const color   = document.getElementById('qr-color').value;
+  const weight  = document.getElementById('qr-weight').value;
+  const cost    = document.getElementById('qr-cost').value;
+
+  const qrData = JSON.stringify({ id: spoolId, brand, type, color, weight, cost, ts: Date.now() });
+  currentQRData = { spoolId, brand, type, color, weight, cost, qrData };
+
+  const container = document.getElementById('qr-canvas');
+  container.innerHTML = '';
+  new QRCode(container, { text: qrData, width: 128, height: 128, colorDark: '#000', colorLight: '#fff' });
+
+  document.getElementById('qr-label-text').innerHTML = `
+    <strong>${brand} ${type}</strong><br>${color}<br>${weight}g | $${cost}<br><small>${spoolId}</small>`;
+  document.getElementById('qr-output').style.display = 'block';
+  toast('QR label generated');
+}
+
+function printQR() {
+  const win = window.open('', '_blank');
+  const qrHtml = document.getElementById('qr-output').innerHTML;
+  win.document.write(`<!DOCTYPE html><html><head><style>
+    body{font-family:sans-serif;padding:20px;}
+    @media print{button{display:none;}}
+  
+/* ─── PURCHASES ───────────────────────────────────── */
+.receipt-drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; transition: .15s; }
+.receipt-drop-zone:hover { border-color: var(--orange); background: rgba(212, 98, 26, 0.05); }
+.receipt-drop-zone.drag-active { border-color: var(--orange); background: rgba(212, 98, 26, 0.1); }
+.receipt-drop-zone input[type="file"] { display: none; }
+.receipt-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+@media (max-width: 800px) { .receipt-form-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .receipt-form-grid { grid-template-columns: 1fr; } }
+.purchase-tab-btn { padding: 8px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); cursor: pointer; font-size: 13px; transition: .15s; margin-bottom: -1px; }
+.purchase-tab-btn:hover { color: var(--text); }
+.purchase-tab-btn.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 600; }
+.budget-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media (max-width: 900px) { .budget-charts { grid-template-columns: 1fr; } }
+.budget-summary { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px; }
+</style></head><body>${qrHtml}<br><button onclick="window.print()">🖨️ Print</button></body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+}
+
+function saveSpoolFromQR() {
+  if (!currentQRData) return;
+  document.getElementById('add-spool-id').value  = currentQRData.spoolId;
+  document.getElementById('add-brand').value     = currentQRData.brand;
+  document.getElementById('add-type').value      = currentQRData.type || 'PLA';
+  document.getElementById('add-color').value     = currentQRData.color;
+  document.getElementById('add-weight').value    = currentQRData.weight;
+  document.getElementById('add-remaining').value = currentQRData.weight;
+  document.getElementById('add-cost').value      = currentQRData.cost;
+  invTab('add', null);
+  toast('Form pre-filled from QR — adjust and save');
+}
+
+// ═══════════════════════════════════════════════════════
+// PRINT GALLERY
+// ═══════════════════════════════════════════════════════
+function renderGallery(data) {
+  state.gallery = data || state.gallery;
+  const grid = document.getElementById('gallery-grid');
+  if (!state.gallery.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📸</div>No prints yet</div>';
+    return;
+  }
+  grid.innerHTML = state.gallery.map(p => {
+    const tags = (p.Tags || '').split(',').map(t => t.trim()).filter(Boolean);
+    const tagHtml = tags.map(t => {
+      const cls = ['stringing','warping','layer separation','elephant foot','failed'].includes(t.toLowerCase()) ? 'issue' : 'setting';
+      return `<span class="tag ${cls}">${t}</span>`;
+    }).join('');
+    return `<div class="gallery-card">
+      <div class="gallery-img">${p.PhotoURL ? `<img src="${p.PhotoURL}" loading="lazy">` : '📷'}</div>
+      <div class="gallery-info">
+        <div class="gallery-title">${p.Title || p.OrderID || 'Print'}</div>
+        <div class="text-muted font-sm">${p.Filament || ''} | ${p.Quality || ''}</div>
+        <div class="gallery-tags">${tagHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterGallery() {
+  const s = document.getElementById('gallery-search').value.toLowerCase();
+  const tagF = document.getElementById('gallery-tag-filter').value.toLowerCase();
+  let data = state.gallery;
+  if (s) data = data.filter(p => JSON.stringify(p).toLowerCase().includes(s));
+  if (tagF) data = data.filter(p => (p.Tags||'').toLowerCase().includes(tagF));
+  const grid = document.getElementById('gallery-grid');
+  // Re-render filtered
+  if (!data.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">No results</div>'; return; }
+  renderGallery(data);
+}
+
+function openUploadModal() {
+  document.getElementById('upload-modal').classList.add('open');
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('upload-preview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhoto() {
+  const file = document.getElementById('upload-file').files[0];
+  if (!file) { toast('Select a photo first', 'warn'); return; }
+  const btn = document.getElementById('upload-btn');
+  btn.textContent = '⏳ Uploading…'; btn.disabled = true;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const res = await apiPost({
+        action:    'uploadPhoto',
+        fileName:  file.name,
+        mimeType:  file.type,
+        base64:    base64,
+        orderId:   document.getElementById('upload-order').value,
+        title:     document.getElementById('upload-title').value,
+        filament:  document.getElementById('upload-filament').value,
+        quality:   document.getElementById('upload-quality').value,
+        tags:      document.getElementById('upload-tags').value,
+        notes:     document.getElementById('upload-notes').value,
+      });
+      if (res.error) throw new Error(res.error);
+      closeModal('upload-modal');
+      toast('Photo uploaded ✓');
+      await refreshAll();
+    } catch (err) {
+      toast('Upload failed: ' + err.message, 'err');
+    } finally {
+      btn.textContent = '📤 Upload'; btn.disabled = false;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════════
+// FULFILLMENT
+// ═══════════════════════════════════════════════════════
+function renderFulfillmentFilter() {
+  const sel = document.getElementById('fulfill-order-filter');
+  const active = state.orders.filter(o => ['New','In Progress','Ready'].includes(o.Status));
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Active Orders</option>' +
+    active.map(o => `<option value="${o._rowIndex}">${o['Order ID']||o.OrderID} — ${o.Customer}</option>`).join('');
+  sel.value = cur;
+  loadFulfillment();
+}
+
+function loadFulfillment() {
+  const rowIndex = document.getElementById('fulfill-order-filter').value;
+  const orders = rowIndex ? state.orders.filter(o => o._rowIndex == rowIndex) : state.orders.filter(o => ['New','In Progress','Ready'].includes(o.Status));
+  const list = document.getElementById('fulfillment-list');
+  if (!orders.length) { list.innerHTML = '<div class="empty-state">No active orders</div>'; return; }
+  const steps = ['Print files sliced & verified','Material loaded & dry','Print started & monitored','Print complete — quality check','Post-processing (remove supports, sand)','Packaging & labeling','Delivery / pickup / shipping','Payment collected','Order marked Complete'];
+  list.innerHTML = orders.map(o => {
+    const oid = o['Order ID'] || o.OrderID || 'Order';
+    return `<div class="mb16">
+      <div class="flex justify-between items-center mb16">
+        <div><strong>${oid}</strong> — ${o.Customer} <span class="text-muted">|</span> ${o.Product||o['Product/Description']||''}</div>
+        <span class="checklist-order">${statusBadge(o.Status)}</span>
+      </div>
+      ${steps.map((step, i) => `
+        <div class="checklist-item">
+          <input type="checkbox" id="chk-${oid}-${i}" ${checklistState(oid, i) ? 'checked' : ''} onchange="saveChecklistState('${oid}',${i},this.checked)">
+          <label for="chk-${oid}-${i}" class="${checklistState(oid,i) ? 'done' : ''}">${step}</label>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+const checklistStates = {};
+function checklistState(oid, i) { return (checklistStates[oid] || {})[i] || false; }
+function saveChecklistState(oid, i, val) {
+  if (!checklistStates[oid]) checklistStates[oid] = {};
+  checklistStates[oid][i] = val;
+  // Re-render labels
+  const lbl = document.querySelector(`label[for="chk-${oid}-${i}"]`);
+  if (lbl) lbl.className = val ? 'done' : '';
+}
+
+// ═══════════════════════════════════════════════════════
+// PRICING CALCULATOR
+// ═══════════════════════════════════════════════════════
+document.getElementById('pc-type').addEventListener('change', function() {
+  document.getElementById('pc-custom-row').style.display = this.value === 'custom' ? 'block' : 'none';
+  calcPrice();
+});
+
+function calcPrice() {
+  const typeEl = document.getElementById('pc-type');
+  let cpg = typeEl.value === 'custom'
+    ? (parseFloat(document.getElementById('pc-custom').value) || 0)
+    : parseFloat(typeEl.value) || 0.018;
+  const weight  = parseFloat(document.getElementById('pc-weight').value) || 0;
+  const qty     = parseInt(document.getElementById('pc-qty').value) || 1;
+  const hrs     = parseFloat(document.getElementById('pc-hrs').value) || 0;
+  const elec    = parseFloat(document.getElementById('pc-elec').value) || 0.08;
+  const labor   = parseFloat(document.getElementById('pc-labor').value) || 0;
+  const markup  = parseFloat(document.getElementById('pc-markup').value) || 60;
+  const ship    = parseFloat(document.getElementById('pc-ship').value) || 0;
+
+  const matCost   = weight * qty * cpg;
+  const elecCost  = hrs * qty * elec;
+  const laborCost = hrs * qty * labor;
+  const totalCost = matCost + elecCost + laborCost;
+  const price     = totalCost * (1 + markup / 100);
+  const perUnit   = price / qty;
+  const gp        = price - totalCost;
+  const margin    = totalCost > 0 ? (gp / price * 100) : 0;
+
+  const $ = n => '$' + n.toFixed(2);
+  document.getElementById('pc-r-mat').textContent    = $(matCost);
+  document.getElementById('pc-r-elec').textContent   = $(elecCost);
+  document.getElementById('pc-r-labor').textContent  = $(laborCost);
+  document.getElementById('pc-r-cost').textContent   = $(totalCost);
+  document.getElementById('pc-r-markup').textContent = markup + '%';
+  document.getElementById('pc-r-price').textContent  = $(price);
+  document.getElementById('pc-r-unit').textContent   = $(perUnit) + '/unit';
+  document.getElementById('pc-r-margin').textContent = margin.toFixed(1) + '%';
+  document.getElementById('pc-r-gp').textContent     = $(gp);
+  document.getElementById('pc-r-total').textContent  = $( price + ship);
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// Close modals on overlay click
+document.querySelectorAll('.overlay').forEach(el => el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); }));
+
+function statusBadge(status) {
+  const map = {
+    'New':         'badge-new',
+    'In Progress': 'badge-progress',
+    'Ready':       'badge-ready',
+    'Complete':    'badge-done',
+    'Cancelled':   'badge-cancelled',
+    'Pending':     'badge-pending',
+    'FRG':         'badge-frg',
+  };
+  const cls = map[status] || 'badge-pending';
+  return `<span class="badge ${cls}">${status||'—'}</span>`;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'2-digit'}); }
+  catch { return d; }
+}
+
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type !== 'ok' ? type : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Set today's date in pricing inputs
+  document.getElementById('add-date').value = new Date().toISOString().split('T')[0];
+  // Start pricing calc
+  calcPrice();
+  // Load Quagga lazily
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js';
+  document.head.appendChild(script);
+  // Fetch all data
+  refreshAll();
+  // Auto-refresh every 5 minutes
+  setInterval(refreshAll, 5 * 60 * 1000);
+});
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// PURCHASES MODULE - Receipt Upload, OCR, Barcode Scanning, Budget Tracking
+// ══════════════════════════════════════════════════════════════════════════
+// Add this file to your dashboard project and include it in the HTML head
+
+const purchasesState = {
+  receipts: [],
+  purchaseLineItems: [],
+  budgetData: [],
+  currentReceipt: null,
+  uploadProgress: 0
+};
+
+// ──────────────────────────────────────────────────────────────────────────
+// 1. RECEIPT UPLOAD & PROCESSING
+// ──────────────────────────────────────────────────────────────────────────
+
+function setupReceiptUpload() {
+  const dropZone = document.getElementById('receipt-drop-zone');
+  const fileInput = document.getElementById('receipt-file-input');
+
+  if (!dropZone) return;
+
+  // Drag & drop
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-active');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-active');
+  });
+
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-active');
+    const files = e.dataTransfer.files;
+    handleReceiptFiles(files);
+  });
+
+  // Click to select
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => handleReceiptFiles(e.target.files));
+}
+
+async function handleReceiptFiles(files) {
+  for (let file of files) {
+    if (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel') {
+      await handleCSVReceipt(file);
+    } else if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+      await uploadReceiptFile(file);
+    } else {
+      toast(`Unsupported file type: ${file.name}`, 'warn');
+    }
+  }
+}
+
+async function uploadReceiptFile(file) {
+  // Set a placeholder receipt record immediately — extraction runs locally, no Drive upload needed
+  purchasesState.currentReceipt = {
+    driveId: null,
+    fileName: file.name,
+    uploadDate: new Date().toISOString().split('T')[0],
+    status: 'local'
+  };
+
+  // Run text extraction right away (PDF.js is fully browser-side, no API required)
+  if (file.type === 'application/pdf') {
+    await extractReceiptDataOCR(file);
+  }
+
+  // Attempt Drive backup in the background — failure doesn't block anything
+  try {
+    const fileData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+    // Chunk large files to avoid btoa stack overflow on big PDFs
+    const bytes = new Uint8Array(fileData);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binary);
+    const result = await apiPost('uploadReceiptPDF', {
+      fileName: file.name,
+      fileData: base64,
+      fileType: file.type,
+      uploadDate: purchasesState.currentReceipt.uploadDate
+    });
+    if (result && result.driveId) {
+      purchasesState.currentReceipt.driveId = result.driveId;
+      purchasesState.currentReceipt.status = 'uploaded';
+    }
+  } catch (err) {
+    // Drive backup is optional — log but don't surface to user
+    console.warn('Receipt Drive backup skipped:', err.message);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 2. TEXT EXTRACTION — PDF.js first, Tesseract fallback for scanned images
+// ──────────────────────────────────────────────────────────────────────────
+
+async function _loadPdfJs() {
+  if (typeof pdfjsLib !== 'undefined') return;
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  document.head.appendChild(script);
+  await new Promise(r => script.onload = r);
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+async function _extractTextPdfJs(file) {
+  await _loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let full = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    // Items come back in reading order; group by Y position to preserve lines
+    const byY = {};
+    content.items.forEach(item => {
+      const y = Math.round(item.transform[5]);
+      if (!byY[y]) byY[y] = [];
+      byY[y].push(item.str);
+    });
+    const sorted = Object.keys(byY).sort((a, b) => b - a); // top-to-bottom
+    sorted.forEach(y => { full += byY[y].join(' ').trim() + '\n'; });
+    full += '\n';
+  }
+  return full.trim();
+}
+
+async function _extractTextTesseract(file) {
+  if (typeof Tesseract === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js';
+    document.head.appendChild(script);
+    await new Promise(r => script.onload = r);
+  }
+  const fileUrl = URL.createObjectURL(file);
+  const result  = await Tesseract.recognize(fileUrl, 'eng', { logger: () => {} });
+  URL.revokeObjectURL(fileUrl);
+  return result.data.text;
+}
+
+async function extractReceiptDataOCR(file) {
+  try {
+    toast('Reading receipt…', 'ok');
+    let text = '';
+    let method = 'pdf.js';
+
+    // PDF.js first — works perfectly for email receipts, order confirmations, any PDF with a text layer
+    if (file.type === 'application/pdf') {
+      try {
+        text = await _extractTextPdfJs(file);
+        // If we got less than 50 chars it's probably a scanned image PDF — fall through to Tesseract
+        if (text.trim().length < 50) throw new Error('No text layer');
+      } catch(e) {
+        method = 'ocr';
+        toast('No text layer found — running OCR…', 'ok');
+        text = await _extractTextTesseract(file);
+      }
+    } else {
+      // Image file — go straight to Tesseract
+      method = 'ocr';
+      toast('Running OCR on image…', 'ok');
+      text = await _extractTextTesseract(file);
+    }
+
+    console.log(`[Receipt] Extracted via ${method}, ${text.length} chars`);
+
+    const receiptData = parseReceiptText(text);
+    populateReceiptForm(receiptData);
+
+    // Parse line items and reveal match button
+    const items = parseReceiptLineItems(text);
+    purchasesState.extractedLineItems = items;
+    const btn = document.getElementById('match-inventory-btn');
+    if (btn) {
+      btn.style.display = '';
+      btn.textContent   = items.length
+        ? `📦 Match ${items.length} Item${items.length !== 1 ? 's' : ''} to Inventory →`
+        : '📦 Match to Inventory (no items found)';
+      btn.disabled = items.length === 0;
+    }
+
+    if (items.length) toast(`Found ${items.length} item${items.length !== 1 ? 's' : ''} — review form then click Match`, 'ok');
+    else              toast('Text extracted — no line items detected, review form fields', 'ok');
+
+  } catch (err) {
+    console.error('Receipt extraction error:', err);
+    toast('Could not read receipt — fill in the form manually', 'warn');
+  }
+}
+
+// Supplier lookup table — add any new vendor here
+const SUPPLIER_MAP = [
+  { keys: ['voxelpla','voxel pla','voxel filament'],  name: 'VOXELPLA'      },
+  { keys: ['amazon'],                                  name: 'Amazon'        },
+  { keys: ['mcmaster'],                                name: 'McMaster-Carr' },
+  { keys: ['prusament','prusa'],                       name: 'Prusa'         },
+  { keys: ['bambu lab','bambulab','bambu'],             name: 'Bambu Lab'     },
+  { keys: ['hatchbox'],                                name: 'Hatchbox'      },
+  { keys: ['esun'],                                    name: 'eSUN'          },
+  { keys: ['sunlu'],                                   name: 'SUNLU'         },
+  { keys: ['polymaker','polyterra'],                   name: 'Polymaker'     },
+  { keys: ['overture'],                                name: 'Overture'      },
+  { keys: ['matterhackers'],                           name: 'MatterHackers' },
+  { keys: ['creality'],                                name: 'Creality'      },
+  { keys: ['elegoo'],                                  name: 'Elegoo'        },
+  { keys: ['anycubic'],                                name: 'Anycubic'      },
+  { keys: ['inland'],                                  name: 'Inland'        },
+  { keys: ['atomic filament','atomic'],                name: 'Atomic'        },
+  { keys: ['fiberlogy'],                               name: 'Fiberlogy'     },
+  { keys: ['colorfabb'],                               name: 'colorFabb'     },
+  { keys: ['3dxtech'],                                 name: '3DXTech'       },
+  { keys: ['raise3d'],                                 name: 'Raise3D'       },
+];
+
+function parseReceiptText(text) {
+  const lc    = text.toLowerCase();
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const data  = {
+    manufacturer: '',
+    date: new Date().toISOString().split('T')[0],
+    total: 0,
+  };
+
+  // ── Supplier ─────────────────────────────────────────────────────────────
+  // Search full text, not just first lines (email receipts have header info throughout)
+  for (const { keys, name } of SUPPLIER_MAP) {
+    if (keys.some(k => lc.includes(k))) { data.manufacturer = name; break; }
+  }
+
+  // ── Date — try multiple formats ──────────────────────────────────────────
+  const MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
+  // "Thu, Mar 26, 2026" or "Mar 26, 2026" or "March 26, 2026"
+  const monthNameMatch = text.match(/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun,?\s+)?(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/i);
+  if (monthNameMatch) {
+    const m = MONTHS[monthNameMatch[1].toLowerCase().slice(0,3)];
+    const d = monthNameMatch[2].padStart(2,'0');
+    const y = monthNameMatch[3];
+    data.date = `${y}-${String(m).padStart(2,'0')}-${d}`;
+  } else {
+    // "03/26/2026" or "3/26/26"
+    const slashDate = text.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (slashDate) {
+      const y = slashDate[3].length === 2 ? '20' + slashDate[3] : slashDate[3];
+      data.date = `${y}-${slashDate[1].padStart(2,'0')}-${slashDate[2].padStart(2,'0')}`;
+    }
+  }
+
+  // ── Total — grab the GRAND total, not subtotals ──────────────────────────
+  // Prefer a line that starts with "Total" (not Subtotal/Tax/Shipping)
+  const totalLine = text.match(/^Total[\s:]+\$?([\d,]+\.?\d*)/im);
+  if (totalLine) {
+    data.total = parseFloat(totalLine[1].replace(/,/g,''));
+  } else {
+    // Fallback: last dollar amount that appears after the word "total"
+    const fallback = text.match(/(?:total|grand total|order total)[\s\S]*?\$?([\d,]+\.\d{2})\s*(?:USD)?/i);
+    if (fallback) data.total = parseFloat(fallback[1].replace(/,/g,''));
+  }
+
+  return data;
+}
+
+function populateReceiptForm(data) {
+  if (data.manufacturer) document.getElementById('receipt-manufacturer').value = data.manufacturer;
+  if (data.date)         document.getElementById('receipt-date').value         = data.date;
+  if (data.total)        document.getElementById('receipt-total').value        = data.total;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 3. BARCODE SCANNING FOR PURCHASES
+// ──────────────────────────────────────────────────────────────────────────
+
+async function startPurchaseBarcodeScanner() {
+  const scannerView = document.getElementById('purchases-scanner-view');
+  if (!scannerView) return;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.createElement('video');
+    video.id = 'purchase-scanner-video';
+    video.srcObject = stream;
+    video.play();
+
+    scannerView.innerHTML = '';
+    scannerView.appendChild(video);
+
+    if (typeof Quagga !== 'undefined') {
+      Quagga.init({
+        inputStream: { type: 'LiveStream', constraints: { facingMode: 'environment' } },
+        decoder: { readers: ['code_128_reader', 'ean_reader', 'upc_reader'] }
+      }, err => {
+        if (err) {
+          console.error('Quagga init error:', err);
+          toast('Camera access denied', 'err');
+          return;
+        }
+        Quagga.start();
+        Quagga.onDetected(result => handlePurchaseBarcodeDetected(result));
+      });
+    }
+  } catch (err) {
+    console.error('Camera error:', err);
+    toast('Unable to access camera', 'err');
+  }
+}
+
+async function handlePurchaseBarcodeDetected(result) {
+  const barcode = result.codeResult.code;
+  const existingItem = state.inventory.find(item =>
+    item.QR_Code?.includes(barcode) || item.Barcode === barcode
+  );
+
+  if (existingItem) {
+    showBarcodeResultModal(existingItem, barcode, true);
+  } else {
+    showBarcodeResultModal(null, barcode, false);
+  }
+}
+
+function showBarcodeResultModal(item, barcode, found) {
+  const modal = document.getElementById('barcode-result-modal');
+  const body = modal.querySelector('.modal-body');
+
+  if (found) {
+    body.innerHTML = `
+      <h4 style="margin-bottom:12px;">Item Found — Edit if needed</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="form-row" style="margin:0;">
+          <label>Brand</label>
+          <input type="text" id="purchase-brand" value="${item.Brand||''}">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Type / Material</label>
+          <input type="text" id="purchase-type" value="${item.Type||item['Material Type']||''}">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Color</label>
+          <input type="text" id="purchase-color" value="${item.Color||''}">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Current Stock</label>
+          <input type="text" value="${item.Remaining||item.Weight||'?'}" disabled style="opacity:0.5;">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Quantity Purchased</label>
+          <input type="number" id="purchase-qty" placeholder="1" value="1" min="0.1" step="0.1">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>Unit Cost ($)</label>
+          <input type="number" id="purchase-cost" placeholder="0.00" step="0.01">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-orange" onclick="addToPurchaseLineItem('${item._rowIndex}', true)">Add to Purchase</button>
+        <button class="btn btn-ghost" onclick="closeModal('barcode-result-modal')">Cancel</button>
+      </div>
+    `;
+  } else {
+    body.innerHTML = `
+      <h4>New Item (Barcode: ${barcode})</h4>
+      <p>This item is not in your inventory. Add as new?</p>
+      <div class="form-row">
+        <label>Product Name</label>
+        <input type="text" id="purchase-product" placeholder="e.g., PLA Filament - Red">
+      </div>
+      <div class="form-row">
+        <label>Category</label>
+        <select id="purchase-category">
+          <option value="Filament">Filament</option>
+          <option value="Resin">Resin</option>
+          <option value="Parts">Parts</option>
+          <option value="Tools">Tools</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Quantity</label>
+        <input type="number" id="purchase-qty" placeholder="1" value="1" min="0.1" step="0.1">
+      </div>
+      <div class="form-row">
+        <label>Unit Cost</label>
+        <input type="number" id="purchase-cost" placeholder="0.00" step="0.01">
+      </div>
+      <button class="btn btn-orange" onclick="addToPurchaseLineItem(null, false)">Create New Item</button>
+      <button class="btn btn-ghost" onclick="closeModal('barcode-result-modal')">Cancel</button>
+    `;
+  }
+
+  modal.classList.add('open');
+}
+
+async function addToPurchaseLineItem(inventoryRowId, isExisting) {
+  const qty  = parseFloat(document.getElementById('purchase-qty').value)  || 0;
+  const cost = parseFloat(document.getElementById('purchase-cost').value) || 0;
+
+  if (isExisting) {
+    // Pick up any edits the user made to brand/type/color
+    const brand    = document.getElementById('purchase-brand')?.value  || '';
+    const type     = document.getElementById('purchase-type')?.value   || '';
+    const color    = document.getElementById('purchase-color')?.value  || '';
+    const label    = [brand, type, color].filter(Boolean).join(' ') || 'Item';
+
+    purchasesState.purchaseLineItems.push({
+      receiptId:        purchasesState.currentReceipt?.driveId || '',
+      productName:      label,
+      category:         'Filament',
+      quantity:         qty,
+      unitCost:         cost,
+      totalCost:        qty * cost,
+      inventoryRowId:   inventoryRowId,
+      dateReceived:     new Date().toISOString().split('T')[0],
+      addedToInventory: false
+    });
+
+    toast(`Added "${label}" to purchase`, 'ok');
+  } else {
+    const product  = document.getElementById('purchase-product').value;
+    const category = document.getElementById('purchase-category').value;
+
+    purchasesState.purchaseLineItems.push({
+      receiptId:        purchasesState.currentReceipt?.driveId || '',
+      productName:      product,
+      category,
+      quantity:         qty,
+      unitCost:         cost,
+      totalCost:        qty * cost,
+      dateReceived:     new Date().toISOString().split('T')[0],
+      addedToInventory: false
+    });
+
+    toast(`Added "${product}" to purchase`, 'ok');
+  }
+
+  closeModal('barcode-result-modal');
+  renderPurchaseLineItems();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 4. RENDER & MANAGE LINE ITEMS
+// ──────────────────────────────────────────────────────────────────────────
+
+function renderPurchaseLineItems() {
+  const tbody = document.getElementById('purchase-line-items-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  purchasesState.purchaseLineItems.forEach((item, idx) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.productName}</td>
+      <td>${item.category}</td>
+      <td>${item.quantity}</td>
+      <td>$${item.unitCost.toFixed(2)}</td>
+      <td>$${item.totalCost.toFixed(2)}</td>
+      <td><input type="checkbox" ${item.addedToInventory ? 'checked' : ''} onchange="toggleLineItemReceived(${idx})"></td>
+      <td><button class="btn btn-sm btn-ghost" onclick="removeLineItem(${idx})">✕</button></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function removeLineItem(idx) {
+  purchasesState.purchaseLineItems.splice(idx, 1);
+  renderPurchaseLineItems();
+}
+
+function toggleLineItemReceived(idx) {
+  purchasesState.purchaseLineItems[idx].addedToInventory = !purchasesState.purchaseLineItems[idx].addedToInventory;
+  renderPurchaseLineItems();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 5. BUDGET TRACKER
+// ──────────────────────────────────────────────────────────────────────────
+
+function renderBudgetTracker() {
+  const container = document.getElementById('budget-chart-container');
+  if (!container) return;
+
+  const monthlyData = {};
+  const manufacturerData = {};
+
+  purchasesState.purchaseLineItems.forEach(item => {
+    const date = new Date(item.dateReceived);
+    const month = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+
+    monthlyData[month] = (monthlyData[month] || 0) + item.totalCost;
+    manufacturerData[item.manufacturer || 'Unknown'] = (manufacturerData[item.manufacturer || 'Unknown'] || 0) + item.totalCost;
+  });
+
+  const monthCtx = document.getElementById('budget-monthly-chart');
+  if (monthCtx && monthCtx.parentElement.style.display !== 'none') {
+    new Chart(monthCtx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(monthlyData),
+        datasets: [{ label: 'Monthly Spending', data: Object.values(monthlyData), backgroundColor: '#D4621A' }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+  }
+
+  const supplierCtx = document.getElementById('budget-supplier-chart');
+  if (supplierCtx && supplierCtx.parentElement.style.display !== 'none') {
+    const topSuppliers = Object.entries(manufacturerData).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    new Chart(supplierCtx, {
+      type: 'doughnut',
+      data: {
+        labels: topSuppliers.map(x => x[0]),
+        datasets: [{ data: topSuppliers.map(x => x[1]), backgroundColor: ['#3D5447', '#D4621A', '#F6C90E', '#66bb6a', '#039be5'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  const totalSpending = Object.values(monthlyData).reduce((a, b) => a + b, 0);
+  const totalEl = document.getElementById('total-spending');
+  if (totalEl) totalEl.textContent = '$' + totalSpending.toFixed(2);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 6. RECEIPT SEARCH & FILTER
+// ──────────────────────────────────────────────────────────────────────────
+
+function searchReceipts() {
+  const startDate = document.getElementById('search-start-date').value;
+  const endDate = document.getElementById('search-end-date').value;
+  const manufacturer = document.getElementById('search-manufacturer').value;
+
+  const filtered = purchasesState.receipts.filter(receipt => {
+    let match = true;
+    if (startDate && receipt.Date < startDate) match = false;
+    if (endDate && receipt.Date > endDate) match = false;
+    if (manufacturer && !receipt.Manufacturer.includes(manufacturer)) match = false;
+    return match;
+  });
+
+  renderReceiptSearchResults(filtered);
+}
+
+function renderReceiptSearchResults(receipts) {
+  const tbody = document.getElementById('receipt-search-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  receipts.forEach(receipt => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${receipt.Date}</td>
+      <td>${receipt.Manufacturer}</td>
+      <td>$${receipt.Total.toFixed(2)}</td>
+      <td>${receipt.Upload_Date}</td>
+      <td><a href="${receipt.PDF_Link}" target="_blank" class="btn btn-sm btn-ghost">View PDF</a></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 7. TAB SWITCHING
+// ──────────────────────────────────────────────────────────────────────────
+
+function switchPurchasesTab(tabName) {
+  document.querySelectorAll('[data-purchase-tab]').forEach(el => el.style.display = 'none');
+  const tab = document.querySelector(`[data-purchase-tab="${tabName}"]`);
+  if (tab) tab.style.display = 'block';
+
+  document.querySelectorAll('.purchase-tab-btn').forEach(btn => btn.classList.remove('active'));
+  // Only add active class if event exists and has a target (handles both click and programmatic calls)
+  if (typeof event !== 'undefined' && event.target) event.target.classList.add('active');
+
+  if (tabName === 'budget') renderBudgetTracker();
+  else if (tabName === 'lineItems') renderPurchaseLineItems();
+  else if (tabName === 'search') searchReceipts();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 8. SAVE & PROCESS
+// ──────────────────────────────────────────────────────────────────────────
+
+async function savePurchaseReceipt() {
+  try {
+    toast('Saving receipt...', 'info');
+
+    const receiptData = {
+      date: document.getElementById('receipt-date').value,
+      manufacturer: document.getElementById('receipt-manufacturer').value,
+      total: parseFloat(document.getElementById('receipt-total').value) || 0,
+      driveId: purchasesState.currentReceipt?.driveId || '',
+      uploadDate: purchasesState.currentReceipt?.uploadDate || new Date().toISOString().split('T')[0],
+      lineItems: purchasesState.purchaseLineItems
+    };
+
+    const result = await apiPost('savePurchaseReceipt', receiptData);
+
+    if (result.success) {
+      toast('Receipt saved! Adding items to inventory...', 'ok');
+      await processLineItemsToInventory();
+      resetPurchaseForm();
+    }
+  } catch (err) {
+    console.error('Save error:', err);
+    toast('Failed to save receipt', 'err');
+  }
+}
+
+async function processLineItemsToInventory() {
+  for (let item of purchasesState.purchaseLineItems) {
+    if (item.addedToInventory) {
+      await apiPost('addToInventory', {
+        productName: item.productName,
+        category: item.category,
+        quantity: item.quantity,
+        cost: item.unitCost
+      });
+    }
+  }
+}
+
+function resetPurchaseForm() {
+  purchasesState.purchaseLineItems = [];
+  purchasesState.currentReceipt = null;
+  document.getElementById('receipt-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('receipt-manufacturer').value = '';
+  document.getElementById('receipt-total').value = '';
+  renderPurchaseLineItems();
+  toast('Form reset', 'ok');
+}
+
+document.addEventListener('DOMContentLoaded', setupReceiptUpload);
+
+// ──────────────────────────────────────────────────────────────────────────
+// CSV RECEIPT HANDLER — Amazon Business Orders export + generic order CSVs
+// ──────────────────────────────────────────────────────────────────────────
+
+function _parseCSVLine(line) {
+  // Handles quoted fields, commas inside quotes, escaped quotes
+  const fields = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      fields.push(cur.replace(/^="(.*)"$/, '$1').replace(/^=/, '').trim()); cur = '';
+    } else { cur += ch; }
+  }
+  fields.push(cur.replace(/^="(.*)"$/, '$1').replace(/^=/, '').trim());
+  return fields;
+}
+
+function _parseCSV(text) {
+  // Strip UTF-8 BOM if present (common in Excel/Amazon CSV exports)
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split('\n').filter(l => l.trim());
+  if (!lines.length) return { headers: [], rows: [] };
+  const headers = _parseCSVLine(lines[0]);
+  const rows = lines.slice(1).map(l => {
+    const vals = _parseCSVLine(l);
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (vals[i] || '').trim());
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+  return { headers, rows };
+}
+
+function _detectCSVFormat(headers) {
+  const hs = headers.map(h => h.toLowerCase());
+  if (hs.includes('order id') && hs.includes('asin')) return 'amazon_business';
+  if (hs.includes('order id') && hs.includes('title')) return 'amazon_business';
+  if (hs.includes('item name') || hs.includes('product name')) return 'generic_order';
+  return 'unknown';
+}
+
+function _parseAmazonBusinessCSV(rows) {
+  // Group rows by Order ID
+  const orderMap = {};
+  rows.forEach(row => {
+    const oid = row['Order ID'] || row['order id'] || '';
+    if (!oid) return;
+    if (!orderMap[oid]) orderMap[oid] = [];
+    orderMap[oid].push(row);
+  });
+
+  return Object.entries(orderMap).map(([orderId, items]) => {
+    const first = items[0];
+    // Skip cancelled orders
+    const status = (first['Order Status'] || '').toLowerCase();
+    if (status === 'cancelled' || status === 'canceled') return null;
+
+    // Parse date — format is MM/DD/YYYY
+    let date = new Date().toISOString().split('T')[0];
+    const raw = first['Order Date'] || '';
+    const dm = raw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dm) date = `${dm[3]}-${dm[1].padStart(2,'0')}-${dm[2].padStart(2,'0')}`;
+
+    const total = parseFloat((first['Order Net Total'] || '0').replace(/[$,]/g,'')) || 0;
+
+    // Extract line items — each row is one item
+    const lineItems = items.map(row => {
+      const title    = row['Title'] || row['title'] || '';
+      const brand    = row['Brand'] || row['Manufacturer'] || '';
+      const qty      = parseFloat(row['Item Quantity'] || row['Order Quantity'] || '1') || 1;
+      const unitCost = parseFloat((row['Purchase PPU'] || row['Listed PPU'] || '0').replace(/[$,]/g,'')) || 0;
+      const netTotal = parseFloat((row['Item Net Total'] || row['Item Subtotal'] || '0').replace(/[$,]/g,'')) || 0;
+      const asin     = row['ASIN'] || '';
+      // Build a clean item name: prefer title, append brand if not already in title
+      let itemName = title;
+      if (brand && !title.toLowerCase().includes(brand.toLowerCase())) {
+        itemName = `${brand} ${title}`;
+      }
+      // Truncate very long Amazon titles to first ~80 chars
+      if (itemName.length > 100) itemName = itemName.slice(0, 97) + '…';
+      return { itemName, quantity: qty, unitPrice: unitCost, totalPrice: netTotal || (unitCost * qty), brand, asin, rawLine: title };
+    }).filter(i => i.itemName && i.unitPrice >= 0);
+
+    return { orderId, date, supplier: 'Amazon', total, lineItems, itemCount: lineItems.length };
+  }).filter(Boolean);
+}
+
+async function handleCSVReceipt(file) {
+  try {
+    toast('Reading CSV…', 'ok');
+    const text = await file.text();
+    const { headers, rows } = _parseCSV(text);
+
+    if (!headers.length) { toast('Could not read CSV — is it a valid file?', 'warn'); return; }
+
+    const fmt = _detectCSVFormat(headers);
+    let orders = [];
+
+    if (fmt === 'amazon_business') {
+      orders = _parseAmazonBusinessCSV(rows);
+    } else {
+      toast('CSV format not recognized — only Amazon Business exports are supported currently', 'warn');
+      return;
+    }
+
+    if (!orders.length) { toast('No valid orders found in CSV', 'warn'); return; }
+
+    // Single order → auto-load it
+    if (orders.length === 1) {
+      _loadOrderIntoReceipt(orders[0]);
+      return;
+    }
+
+    // Multiple orders → show selection UI
+    _showOrderSelectionModal(orders);
+
+  } catch(err) {
+    console.error('CSV parse error:', err);
+    toast('Failed to read CSV: ' + err.message, 'warn');
+  }
+}
+
+function _showOrderSelectionModal(orders) {
+  const modal = document.getElementById('csv-order-select-modal');
+  const body  = document.getElementById('csv-order-select-body');
+  if (!modal || !body) { console.error('csv-order-select-modal not found'); return; }
+
+  // Sort newest first
+  const sorted = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  body.innerHTML = `
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Found <strong>${sorted.length} orders</strong> in this CSV. Select one to process:</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${sorted.map((o, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.12s;"
+             onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'"
+             onclick="_selectCSVOrder(${i})">
+          <div>
+            <div style="font-size:13px;font-weight:600;">Order ${o.orderId}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${o.date} &nbsp;·&nbsp; ${o.itemCount} item${o.itemCount !== 1 ? 's' : ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:15px;font-weight:700;">$${o.total.toFixed(2)}</div>
+            <div style="font-size:11px;color:var(--muted);">Amazon</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // Store sorted orders for selection handler
+  window._csvOrderQueue = sorted;
+  modal.classList.add('open');
+}
+
+function _selectCSVOrder(idx) {
+  const order = window._csvOrderQueue?.[idx];
+  if (!order) return;
+  closeModal('csv-order-select-modal');
+  _loadOrderIntoReceipt(order);
+}
+
+function _loadOrderIntoReceipt(order) {
+  // Populate receipt header form
+  document.getElementById('receipt-date').value         = order.date;
+  document.getElementById('receipt-manufacturer').value = order.supplier;
+  document.getElementById('receipt-total').value        = order.total.toFixed(2);
+
+  // Store extracted line items and update match button
+  purchasesState.extractedLineItems = order.lineItems;
+  const btn = document.getElementById('match-inventory-btn');
+  if (btn) {
+    btn.style.display = '';
+    const inv = order.lineItems.length;
+    btn.textContent = inv
+      ? `📦 Match ${inv} Item${inv !== 1 ? 's' : ''} to Inventory →`
+      : '📦 Match to Inventory (no items found)';
+    btn.disabled = inv === 0;
+  }
+
+  toast(`Loaded ${order.orderId}: ${order.lineItems.length} items · $${order.total.toFixed(2)} — click Match to continue`, 'ok');
+}
+
+</script>
+<!-- ── PURCHASES ── -->
+    <div id="view-purchases" class="view">
+      <div style="padding: 20px;">
+        <div style="display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:20px;">
+          <button class="purchase-tab-btn active" onclick="switchPurchasesTab('upload')">📤 Upload</button>
+          <button class="purchase-tab-btn" onclick="switchPurchasesTab('lineItems')">📋 Items</button>
+          <button class="purchase-tab-btn" onclick="switchPurchasesTab('budget')">📊 Budget</button>
+          <button class="purchase-tab-btn" onclick="switchPurchasesTab('search')">🔍 Search</button>
+        </div>
+        <div data-purchase-tab="upload" style="display:block;">
+          <h3>Upload Receipt</h3>
+          <div class="receipt-drop-zone" id="receipt-drop-zone"><div style="font-size:40px; margin-bottom:12px;">📄</div><strong>Drop PDF, image, or CSV here</strong><br><span style="color:var(--muted); font-size:12px;">PDF receipts · email exports · Amazon Business CSV</span><input type="file" id="receipt-file-input" accept=".pdf,.csv,image/*"></div>
+          <div class="receipt-form-grid" style="margin-top: 20px;"><div class="form-row"><label>Date</label><input type="date" id="receipt-date"></div><div class="form-row"><label>Supplier</label><input type="text" id="receipt-manufacturer"></div><div class="form-row"><label>Total</label><input type="number" id="receipt-total" step="0.01"></div></div>
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button id="match-inventory-btn" class="btn btn-orange" onclick="renderMatchSuggestions()" style="display:none;" disabled>📦 Match Items to Inventory →</button>
+            <button class="btn btn-primary" onclick="startPurchaseBarcodeScanner()">📱 Scan Barcode</button>
+          </div>
+          <div class="section-title" style="margin-top:16px;">Line Items</div>
+          <div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Cost</th><th>Total</th><th>✓</th><th></th></tr></thead><tbody id="purchase-line-items-body"></tbody></table></div>
+          <div style="margin-top: 20px; display: flex; gap: 10px;"><button class="btn btn-orange" onclick="savePurchaseReceipt()">✅ Save Receipt</button><button class="btn btn-ghost" onclick="resetPurchaseForm()">🔄 Reset</button></div>
+        </div>
+        <div data-purchase-tab="lineItems" style="display:none;"><h3>Line Items</h3><div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Qty</th><th>Cost</th><th>Total</th><th>Added</th><th></th></tr></thead><tbody id="purchase-line-items-body-tab"></tbody></table></div></div>
+        <div data-purchase-tab="budget" style="display:none;"><h3>Budget</h3><div class="budget-summary"><div class="kpi-label">Total Spending</div><div class="kpi-value" id="total-spending">$0.00</div></div><div class="budget-charts"><div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px;"><div style="height:260px;"><canvas id="budget-monthly-chart"></canvas></div></div><div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px;"><div style="height:260px;"><canvas id="budget-supplier-chart"></canvas></div></div></div></div>
+        <div data-purchase-tab="search" style="display:none;"><h3>Search</h3><div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px;"><div class="form-row"><label>From</label><input type="date" id="search-start-date" onchange="searchReceipts()"></div><div class="form-row"><label>To</label><input type="date" id="search-end-date" onchange="searchReceipts()"></div><div class="form-row"><label>Supplier</label><input type="text" id="search-manufacturer" onkeyup="searchReceipts()"></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Supplier</th><th>Amount</th><th>Uploaded</th><th></th></tr></thead><tbody id="receipt-search-body"></tbody></table></div></div>
+      </div>
+    </div>
+    <div class="overlay" id="barcode-result-modal"><div class="modal"><div class="modal-head"><h3>Barcode Result</h3><button class="close-btn" onclick="closeModal('barcode-result-modal')">✕</button></div><div class="modal-body"></div></div></div>
+
+    <!-- ── RECEIPT MATCH SUGGESTIONS MODAL ── -->
+    <div class="overlay" id="receipt-match-modal">
+      <div class="modal" style="width:min(700px,96vw);max-height:90vh;overflow-y:auto;">
+        <div class="modal-head">
+          <div>
+            <h3>📦 Match Items to Inventory</h3>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Select an existing spool to link, or choose "Create new" for each item</div>
+          </div>
+          <button class="close-btn" onclick="closeModal('receipt-match-modal')">✕</button>
+        </div>
+        <div class="modal-body" id="receipt-match-body" style="padding:16px;"></div>
+        <div class="modal-foot" style="justify-content:space-between;">
+          <button class="btn btn-ghost" onclick="closeModal('receipt-match-modal')">Cancel</button>
+          <button class="btn btn-orange" onclick="applyMatchSelections()">Add Selected to Inventory →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV Order Selection Modal -->
+    <div class="overlay" id="csv-order-select-modal">
+      <div class="modal" style="width:min(600px,96vw);max-height:88vh;overflow-y:auto;">
+        <div class="modal-head">
+          <div>
+            <h3>🛒 Select Order to Import</h3>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Multiple orders found — pick one to load as a receipt</div>
+          </div>
+          <button class="close-btn" onclick="closeModal('csv-order-select-modal')">✕</button>
+        </div>
+        <div class="modal-body" id="csv-order-list" style="padding:16px;display:flex;flex-direction:column;gap:10px;"></div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" onclick="closeModal('csv-order-select-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+</div><!-- end #main -->
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// RECEIPT → INVENTORY MODULE  (Phases 1–5)
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Extend purchasesState with new properties ─────────────────────────────
+purchasesState.extractedLineItems = [];
+purchasesState.lineItemMatches    = {};
+purchasesState.userSelections     = {};
+purchasesState._addQueue          = [];
+purchasesState._addQueueIdx       = 0;
+
+// ── KEYWORD DICTIONARIES ──────────────────────────────────────────────────
+const BRAND_KEYWORDS = [
+  'bambu lab','bambulab','bambu','hatchbox','esun','sunlu','prusament','prusa',
+  'overture','polyterra','polymaker','atomic filament','inland','creality',
+  'elegoo','anycubic','ziro','tinmorry','fiberlogy','raise3d','3dxtech',
+  'colorfabb','matterhackers','cc3d','kodak','duramic','amolen','sainsmart',
+  'voxelpla','voxel pla','voxel'
+];
+const TYPE_KEYWORDS = {
+  'PLA-CF':  ['pla-cf','pla cf','carbon fiber pla','pla carbon','pla+cf'],
+  'PETG-CF': ['petg-cf','petg cf','carbon fiber petg','petg carbon'],
+  'ABS-CF':  ['abs-cf','abs cf','carbon fiber abs'],
+  'PLA+':    ['pla+','pla plus','pla pro','tough pla','pla basic plus'],
+  'PETG':    ['petg','pet-g'],
+  'ABS':     ['abs filament',' abs ','(abs)'],
+  'ASA':     ['asa filament',' asa ','(asa)'],
+  'TPU':     ['tpu 95a','tpu 87a',' tpu ','(tpu)','flexible filament'],
+  'NYLON':   ['nylon','pa6','pa12',' pa '],
+  'SILK':    ['silk pla','silk petg','silk filament','silk pla+'],
+  'WOOD':    ['wood fill','woodfill','wood pla'],
+  'PC':      ['polycarbonate',' pc '],
+  'PVA':     [' pva ','polyvinyl'],
+  'HIPS':    [' hips '],
+  'PLA':     [' pla ','(pla)','pla filament','pla spool','1.75mm pla','pla 1.75']
+};
+const COLOR_KEYWORDS = [
+  'midnight black','cool white','space grey',
+  'black','white','red','blue','green','yellow','orange','purple','pink',
+  'grey','gray','silver','gold','natural','clear','transparent','brown',
+  'navy','teal','cyan','magenta','maroon','olive','lime','aqua','beige','ivory'
+];
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 1 — LINE ITEM EXTRACTION
+// ══════════════════════════════════════════════════════════════════════════
+
+function parseReceiptLineItems(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+  const isTable = detectTableStructure(lines);
+  const items = isTable ? extractTableRows(lines) : extractUnstructuredItems(lines);
+  return items.filter(i => i.itemName && i.unitPrice > 0);
+}
+
+function detectTableStructure(lines) {
+  const multiPriceLines = lines.filter(l => (l.match(/\$?[\d,]+\.\d{2}/g) || []).length >= 2);
+  return multiPriceLines.length >= 3;
+}
+
+function extractTableRows(lines) {
+  const items = [];
+  const skipPattern = /^(product|item|description|qty|quantity|total|subtotal|tax|shipping|discount|order|receipt|invoice|bill|amount|price|thank|dear|sold|ship)/i;
+  const skipLine   = /^\s*(subtotal|total|tax|s&h|s\/h|shipping|discount|grand total|order total|estimated)/i;
+
+  for (const line of lines) {
+    if (skipPattern.test(line) || skipLine.test(line)) continue;
+
+    const prices = [...line.matchAll(/\$?([\d,]+\.\d{2})/g)].map(m => parseFloat(m[1].replace(/,/g, '')));
+    if (!prices.length) continue;
+
+    const totalPrice = prices[prices.length - 1];
+    const unitPrice  = prices.length >= 2 ? prices[prices.length - 2] : totalPrice;
+
+    let quantity = 1;
+    const qtyMatch = line.match(/^(\d+)\s*[xX×]\s*|(?:qty|quantity)[:\s]+(\d+)/i);
+    if (qtyMatch) quantity = parseInt(qtyMatch[1] || qtyMatch[2]) || 1;
+    else if (prices.length >= 2 && unitPrice > 0) quantity = Math.max(1, Math.round(totalPrice / unitPrice));
+
+    const nameRaw = line.replace(/\$?[\d,]+\.\d{2}.*/g, '').replace(/^(\d+)\s*[xX×]\s*/i, '').trim();
+    const itemName = normalizeItemName(nameRaw);
+    if (!itemName || itemName.length < 3) continue;
+
+    items.push({ itemName, quantity, unitPrice, totalPrice, rawLine: line });
+  }
+  return items;
+}
+
+function extractUnstructuredItems(lines) {
+  const items = [];
+  const productKeywords = [
+    ...BRAND_KEYWORDS,
+    'pla','petg','abs','tpu','asa','filament','spool','resin','1kg','500g','250g','2kg',
+    'filter','hepa','carbon','bento','nozzle','hotend','extruder','bed','plate','spring',
+    'belt','motor','fan','sensor','probe','coupler','tube','bowden','fitting'
+  ];
+  // Lines to skip entirely as item candidates
+  const skipItem = /^(subtotal|total|tax|s&h|s\/h|order summary|order #|order number|date|bill to|ship to|thank|dear|invoice|receipt|estimated delivery|view your|visit our|hi |hello |if you have|customer info|shipping address|billing address|payment method)/i;
+  // Lines that stop the price lookahead search (hard financial boundaries only)
+  const stopLookahead = /^(subtotal|total|tax|s&h|s\/h)/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (skipItem.test(line)) continue;
+
+    const lc = line.toLowerCase();
+
+    // ── Format 1: "Product Name × Qty" (Shopify / VOXELPLA / most modern storefronts)
+    const crossQtyMatch = line.match(/^(.+?)\s*[×xX]\s*(\d+)\s*$/);
+    if (crossQtyMatch) {
+      const rawName = crossQtyMatch[1].trim();
+      const qty     = parseInt(crossQtyMatch[2]) || 1;
+      let price = 0;
+      // Price may be on same line (unlikely) or up to 4 lines ahead
+      // variant/option lines (e.g. "Standard / 4028 Fans") have no price — just skip past them
+      for (let offset = 1; offset <= 4; offset++) {
+        const ahead = lines[i + offset] || '';
+        if (stopLookahead.test(ahead)) break;           // hit financial summary — stop
+        const pm = ahead.match(/\$?([\d,]+\.\d{2})/);
+        if (pm) { price = parseFloat(pm[1].replace(/,/g,'')); i += offset; break; }
+      }
+      if (price > 0) {
+        const itemName = normalizeItemName(rawName);
+        if (itemName.length >= 3) {
+          items.push({ itemName, quantity: qty, unitPrice: +(price / qty).toFixed(4), totalPrice: price, rawLine: line });
+          continue;
+        }
+      }
+    }
+
+    // ── Format 2: price embedded on same line, product keyword present
+    const priceOnLine = line.match(/\$?([\d,]+\.\d{2})/);
+    if (priceOnLine) {
+      const hasKeyword = productKeywords.some(k => lc.includes(k));
+      if (!hasKeyword) continue;
+      const price = parseFloat(priceOnLine[1].replace(/,/g,''));
+      if (price < 0.5) continue;
+      const itemName = normalizeItemName(line.replace(/\s*\$?[\d,]+\.\d{2}.*$/, '').trim());
+      if (itemName.length >= 3) {
+        items.push({ itemName, quantity: 1, unitPrice: price, totalPrice: price, rawLine: line });
+        continue;
+      }
+    }
+
+    // ── Format 3: product keyword line, price appears on the next 1–2 lines
+    const hasKeyword = productKeywords.some(k => lc.includes(k));
+    if (!hasKeyword) continue;
+    let price = 0, priceOffset = 0;
+    for (let offset = 1; offset <= 2; offset++) {
+      const check = lines[i + offset] || '';
+      if (stopLookahead.test(check)) break;
+      const pm = check.match(/\$?([\d,]+\.\d{2})/);
+      if (pm) { price = parseFloat(pm[1].replace(/,/g,'')); priceOffset = offset; break; }
+    }
+    if (!price || price < 0.5) continue;
+    const itemName = normalizeItemName(line);
+    if (itemName.length >= 3) {
+      items.push({ itemName, quantity: 1, unitPrice: price, totalPrice: price, rawLine: line });
+      if (priceOffset > 0) i += priceOffset;
+    }
+  }
+  return items;
+}
+
+function normalizeItemName(name) {
+  return name
+    .replace(/[|\\]/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\W_]+|[\W_]+$/g, '')
+    .replace(/^(\d+)\s*[xX×]\s*/i, '')
+    .trim();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 2 — INVENTORY MATCHING ENGINE
+// ══════════════════════════════════════════════════════════════════════════
+
+function extractItemAttributes(itemName) {
+  const lc = itemName.toLowerCase();
+
+  // Brand — prefer longest match (more specific)
+  let detectedBrand = '';
+  BRAND_KEYWORDS.forEach(brand => {
+    if (lc.includes(brand) && brand.length > detectedBrand.length) detectedBrand = brand;
+  });
+  if (detectedBrand) detectedBrand = detectedBrand.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  // Material type — ordered most-specific first
+  let detectedType = '';
+  for (const [type, keywords] of Object.entries(TYPE_KEYWORDS)) {
+    if (keywords.some(k => lc.includes(k))) { detectedType = type; break; }
+  }
+
+  // Color — multi-word first
+  let detectedColor = '';
+  for (const color of COLOR_KEYWORDS) {
+    if (lc.includes(color)) { detectedColor = color.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); break; }
+  }
+
+  return { detectedBrand, detectedType, detectedColor };
+}
+
+function scoreInventoryMatch(attrs, spool) {
+  let score = 0;
+  const { detectedBrand, detectedType, detectedColor } = attrs;
+  const sb = (spool.Brand || '').toLowerCase();
+  const st = (spool.Type || spool['Material Type'] || '').toLowerCase();
+  const sc = (spool.Color || '').toLowerCase();
+
+  if (detectedBrand && sb) {
+    const db = detectedBrand.toLowerCase();
+    if (sb === db) score += 40;
+    else if (sb.includes(db) || db.includes(sb)) score += 22;
+  }
+  if (detectedType && st) {
+    const dt = detectedType.toLowerCase();
+    if (st === dt) score += 35;
+    else if (st.includes(dt) || dt.includes(st)) score += 18;
+  }
+  if (detectedColor && sc) {
+    const dc = detectedColor.toLowerCase();
+    if (sc === dc) score += 25;
+    else if (sc.includes(dc) || dc.includes(sc)) score += 10;
+  }
+  return score;
+}
+
+function findInventoryMatches(item) {
+  const attrs = extractItemAttributes(item.itemName);
+  const scored = state.inventory.map(spool => ({
+    spool, score: scoreInventoryMatch(attrs, spool), attrs
+  }));
+  return scored.filter(m => m.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 3 — MATCH SUGGESTIONS UI
+// ══════════════════════════════════════════════════════════════════════════
+
+function renderMatchSuggestions() {
+  const items = purchasesState.extractedLineItems;
+  if (!items.length) { toast('No line items found — try manual entry', 'warn'); return; }
+
+  purchasesState.lineItemMatches  = {};
+  purchasesState.userSelections   = {};
+
+  items.forEach((item, idx) => {
+    purchasesState.lineItemMatches[idx] = findInventoryMatches(item);
+    purchasesState.userSelections[idx]  = null;
+  });
+
+  const body = document.getElementById('receipt-match-body');
+  body.innerHTML = items.map((item, idx) => {
+    const matches = purchasesState.lineItemMatches[idx];
+    const attrs   = matches[0]?.attrs || extractItemAttributes(item.itemName);
+
+    const matchCards = matches.length
+      ? matches.map(m => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:6px;transition:.12s;" onmouseover="this.style.borderColor='var(--green2)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="radio" name="match-${idx}" value="${m.spool._rowIndex}" onchange="selectMatch(${idx},'${m.spool._rowIndex}')">
+            <div style="width:24px;height:24px;border-radius:50%;background:${m.spool['Hex Color']||'#888'};border:2px solid rgba(255,255,255,.2);flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.spool.Brand||''} ${m.spool.Type||m.spool['Material Type']||''} — ${m.spool.Color||''}</div>
+              <div style="font-size:11px;color:var(--muted);">${m.spool['Spool ID']||'—'} &nbsp;·&nbsp; ${m.spool.Remaining||m.spool['Remaining (g)']||'?'}g left</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:12px;font-weight:600;color:${m.score>=60?'#4caf50':m.score>=30?'#ffb74d':'var(--muted)'};">${m.score}%</div>
+              <div style="width:52px;height:4px;background:var(--surface2);border-radius:2px;margin-top:4px;">
+                <div style="width:${Math.min(m.score,100)}%;height:100%;background:${m.score>=60?'#4caf50':m.score>=30?'#ffb74d':'#ef9a9a'};border-radius:2px;"></div>
+              </div>
+            </div>
+          </label>`).join('')
+      : `<div style="color:var(--muted);font-size:12px;padding:6px 0;font-style:italic;">No matching spools found in inventory</div>`;
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;">
+          <div style="min-width:0;">
+            <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.itemName}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Qty: <strong>${item.quantity}</strong> &nbsp;·&nbsp; Unit: <strong>$${item.unitPrice.toFixed(2)}</strong> &nbsp;·&nbsp; Total: <strong>$${item.totalPrice.toFixed(2)}</strong></div>
+            ${[attrs.detectedBrand,attrs.detectedType,attrs.detectedColor].filter(Boolean).length ? `<div style="font-size:11px;color:var(--orange);margin-top:3px;">Detected: ${[attrs.detectedBrand,attrs.detectedType,attrs.detectedColor].filter(Boolean).join(' · ')}</div>` : ''}
+          </div>
+          <div id="match-status-${idx}" style="font-size:11px;color:var(--muted);white-space:nowrap;">Not set</div>
+        </div>
+        <div style="margin-bottom:10px;">${matchCards}</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+            <input type="radio" name="match-${idx}" value="new" onchange="selectMatch(${idx},'new')"> ✚ Create new spool
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);">
+            <input type="radio" name="match-${idx}" value="skip" onchange="selectMatch(${idx},'skip')"> — Skip
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('receipt-match-modal').classList.add('open');
+}
+
+function selectMatch(idx, value) {
+  purchasesState.userSelections[idx] = value;
+  const el = document.getElementById('match-status-' + idx);
+  if (!el) return;
+  if (value === 'new')  { el.textContent = '✚ New spool';  el.style.color = 'var(--orange)'; }
+  else if (value === 'skip') { el.textContent = '— Skipped'; el.style.color = 'var(--muted2)'; }
+  else                       { el.textContent = '✓ Linked';  el.style.color = '#4caf50'; }
+}
+
+function applyMatchSelections() {
+  const items      = purchasesState.extractedLineItems;
+  const selections = purchasesState.userSelections;
+  const toAdd      = [];
+
+  items.forEach((item, idx) => {
+    const sel = selections[idx];
+    if (!sel || sel === 'skip') return;
+    toAdd.push({ item, spoolRowIndex: sel === 'new' ? null : sel });
+  });
+
+  closeModal('receipt-match-modal');
+
+  if (!toAdd.length) { toast('Nothing selected — pick items or "Create new"', 'warn'); return; }
+
+  purchasesState._addQueue    = toAdd;
+  purchasesState._addQueueIdx = 0;
+  processNextQueueItem();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 4 — ADD SPOOL FORM PRE-FILL
+// ══════════════════════════════════════════════════════════════════════════
+
+function processNextQueueItem() {
+  const queue = purchasesState._addQueue;
+  const idx   = purchasesState._addQueueIdx;
+  if (!queue || idx >= queue.length) {
+    if (queue && queue.length > 0) toast(`All ${queue.length} item(s) queued ✓`, 'ok');
+    purchasesState._addQueue    = [];
+    purchasesState._addQueueIdx = 0;
+    return;
+  }
+  const { item, spoolRowIndex } = queue[idx];
+  purchasesState._addQueueIdx = idx + 1;
+  prefillAddSpoolFromReceipt(item, spoolRowIndex);
+}
+
+function prefillAddSpoolFromReceipt(item, spoolRowIndex) {
+  const attrs = extractItemAttributes(item.itemName);
+  const linkedSpool = spoolRowIndex ? state.inventory.find(s => s._rowIndex == spoolRowIndex) : null;
+
+  // Navigate to Inventory → Add Spool
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const invNav = document.querySelector('[data-view="inventory"]');
+  if (invNav) invNav.classList.add('active');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const invView = document.getElementById('view-inventory');
+  if (invView) invView.classList.add('active');
+  document.getElementById('view-title').textContent = 'Inventory';
+  const pb = document.getElementById('primary-action');
+  if (pb) { pb.textContent = '+ Add Spool'; pb.style.display = ''; }
+
+  // Switch to Add tab (index 3)
+  invTab('add', null);
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.remove('active');
+    if (i === 3) b.classList.add('active');
+  });
+
+  // Resolve values: prefer linked spool data, fall back to extracted attrs
+  const brand = linkedSpool?.Brand || attrs.detectedBrand || '';
+  const type  = linkedSpool?.Type  || linkedSpool?.['Material Type'] || attrs.detectedType || '';
+  const color = linkedSpool?.Color || attrs.detectedColor || '';
+  const hex   = linkedSpool?.['Hex Color'] || '#333333';
+
+  // Fill form
+  document.getElementById('add-brand').value     = brand;
+  document.getElementById('add-color').value     = color;
+  document.getElementById('add-hex').value       = hex;
+  document.getElementById('add-cost').value      = item.unitPrice > 0 ? item.unitPrice.toFixed(2) : '';
+  document.getElementById('add-date').value      = document.getElementById('receipt-date')?.value || new Date().toISOString().split('T')[0];
+  document.getElementById('add-barcode').value   = '';
+  document.getElementById('add-mw').value        = '';
+
+  // Weight: 1 unit = 1 spool = 1000g default
+  const weightG = item.quantity >= 1 ? 1000 : 1000;
+  document.getElementById('add-weight').value    = weightG;
+  document.getElementById('add-remaining').value = weightG;
+
+  // Type dropdown
+  const typeSelect = document.getElementById('add-type');
+  if (type && typeSelect) {
+    for (const opt of typeSelect.options) {
+      if (opt.value.toLowerCase() === type.toLowerCase()) { typeSelect.value = opt.value; break; }
+    }
+  }
+
+  // Notes
+  const supplier  = document.getElementById('receipt-manufacturer')?.value || 'receipt';
+  const rDate     = document.getElementById('receipt-date')?.value || '';
+  const remaining = (purchasesState._addQueue?.length || 0) - purchasesState._addQueueIdx;
+  document.getElementById('add-notes').value = `From ${supplier} receipt${rDate ? ' ' + rDate : ''}${linkedSpool ? ' · linked spool' : ''}${remaining > 0 ? ' · ' + remaining + ' more queued' : ''}`;
+
+  // Show banner
+  _showReceiptBanner(item, linkedSpool);
+
+  toast(`Pre-filled: ${[brand, type, color].filter(Boolean).join(' ') || item.itemName}`, 'ok');
+}
+
+function _showReceiptBanner(item, linkedSpool) {
+  const existing = document.getElementById('receipt-prefill-banner');
+  if (existing) existing.remove();
+
+  const addCard = document.querySelector('#inv-add .card');
+  if (!addCard) return;
+
+  const remaining = (purchasesState._addQueue?.length || 0) - purchasesState._addQueueIdx;
+  const banner    = document.createElement('div');
+  banner.id       = 'receipt-prefill-banner';
+  banner.style.cssText = 'background:rgba(212,98,26,.12);border:1px solid var(--orange);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;';
+  banner.innerHTML = `
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--orange);">📄 Pre-filled from receipt</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;">${item.itemName} · $${item.unitPrice.toFixed(2)}${linkedSpool ? ' · Linked to existing spool' : ' · New entry'}</div>
+    </div>
+    ${remaining > 0 ? `<button class="btn btn-ghost btn-sm" onclick="_skipToNextQueueItem()" style="flex-shrink:0;">Next (${remaining} left) →</button>` : '<span style="font-size:11px;color:var(--muted);flex-shrink:0;">Last item</span>'}
+  `;
+  addCard.insertBefore(banner, addCard.firstChild);
+}
+
+function _skipToNextQueueItem() {
+  const b = document.getElementById('receipt-prefill-banner');
+  if (b) b.remove();
+  processNextQueueItem();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PHASE 5 — fully integrated into extractReceiptDataOCR above
+// ══════════════════════════════════════════════════════════════════════════
+</script>
+
+<!-- ═══════════════════ GLOSSARY VIEW ═══════════════════════ -->
+<div id="view-glossary" class="view" style="padding:0;"></div>
+
+<!-- Glossary assets — load last so they attach to a fully-built DOM -->
+<link rel="stylesheet" href="glossary.css">
+<script src="glossary.js"></script>
+<script>
+/**
+ * Wire up a small number of example linkTerm() usages after glossary loads.
+ * Extend this list as you want more acronyms to become clickable across
+ * the dashboard. Pattern: find element → swap inner HTML to linked version.
+ * Marker dataset.glWired prevents double-wiring on re-render.
+ */
+(function() {
+  function wireGlossaryExamples() {
+    if (typeof Glossary === 'undefined' || !Glossary.data) return;
+
+    // 1. FRG KPI label on the dashboard
+    const frg = document.getElementById('kpi-frg-label');
+    if (frg && !frg.dataset.glWired) {
+      frg.innerHTML = Glossary.linkTerm('FRG', 'FRG') + ' Orders';
+      frg.dataset.glWired = '1';
+    }
+
+    // 2. "Drop PDF, image, or CSV" caption in Purchases
+    const dropCaption = document.querySelector('#receipt-drop-zone strong');
+    if (dropCaption && !dropCaption.dataset.glWired) {
+      dropCaption.innerHTML = 'Drop ' + Glossary.linkTerm('PDF', 'PDF')
+        + ', image, or ' + Glossary.linkTerm('CSV', 'CSV') + ' here';
+      dropCaption.dataset.glWired = '1';
+    }
+
+    // 3. Any .section-title containing "OCR" becomes clickable
+    document.querySelectorAll('.section-title').forEach(el => {
+      if (el.dataset.glWired) return;
+      if (el.textContent.includes('OCR')) {
+        el.innerHTML = el.textContent.replace(/OCR/g, Glossary.linkTerm('OCR', 'OCR'));
+        el.dataset.glWired = '1';
+      }
+    });
+  }
+
+  Glossary.load().then(wireGlossaryExamples);
+  // Re-wire after dashboard refreshes (views can re-render)
+  document.addEventListener('dashboard:rendered', wireGlossaryExamples);
+})();
+</script>
+
+</body>
+</html>
+
+    
