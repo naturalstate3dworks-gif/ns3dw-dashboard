@@ -3324,16 +3324,21 @@ function parseGCode(text) {
   let weight = null, timeHours = null;
 
   // --- WEIGHT (grams) ---
-  // PrusaSlicer / BambuStudio / OrcaSlicer
-  let wm = text.match(/;\s*filament used\s*\[g\]\s*=\s*([\d.]+)/i);
-  if (!wm) wm = text.match(/;\s*total filament weight\s*\[g\]\s*=\s*([\d.]+)/i);
-  if (!wm) wm = text.match(/;\s*filament_weight\s*[=:]\s*([\d.]+)/i);
-  if (!wm) wm = text.match(/;\s*filament used\s*=\s*([\d.]+)\s*g/i);
+  // BambuStudio: "; total filament weight [g] : 148.37" or multi-color "45.98,6.46,5.90"
+  let wm = text.match(/;\s*total filament weight\s*\[g\]\s*[=:]\s*([\d.,]+)/i);
+  // PrusaSlicer / OrcaSlicer: "; filament used [g] = 37.81"
+  if (!wm) wm = text.match(/;\s*filament used\s*\[g\]\s*[=:]\s*([\d.,]+)/i);
+  if (!wm) wm = text.match(/;\s*filament_weight\s*[=:]\s*([\d.,]+)/i);
+  if (!wm) wm = text.match(/;\s*filament used\s*[=:]\s*([\d.]+)\s*g/i);
   if (!wm) wm = text.match(/;\s*total weight\s*[=:]\s*([\d.]+)\s*g/i);
   // Cura
   if (!wm) wm = text.match(/;WEIGHT\s*[=:]\s*([\d.]+)/i);
   if (!wm) wm = text.match(/;Filament weight\s*[=:]\s*([\d.]+)/i);
-  if (wm) weight = parseFloat(wm[1]);
+  if (wm) {
+    // Handle multi-color comma-separated values — sum all slots
+    const vals = wm[1].split(',').map(v => parseFloat(v)).filter(v => !isNaN(v));
+    weight = vals.reduce((a, b) => a + b, 0);
+  }
 
   // --- TIME ---
   // PrusaSlicer / Bambu / Orca: "; estimated printing time (normal mode) = 2h 23m 45s"
