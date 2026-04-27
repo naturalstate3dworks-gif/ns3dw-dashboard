@@ -6,6 +6,7 @@
 <title>NS3DW Operations Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root {
   --bg:        #111111;
@@ -101,6 +102,17 @@ tbody tr:last-child{border-bottom:none;}
 .badge-frg{background:#4a148c33;color:#ce93d8;}
 .badge-pending{background:#f57f1733;color:#ffcc02;}
 
+/* ─── PRINT LIBRARY ──────────────────────────────── */
+.lib-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:.15s;}
+.lib-card:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3);}
+.lib-thumb{width:100%;aspect-ratio:1;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.lib-thumb-placeholder{font-size:40px;}
+.lib-card-body{padding:12px;}
+.lib-card-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lib-dropzone{border:2px dashed var(--border);border-radius:8px;padding:22px 10px;text-align:center;cursor:pointer;transition:.2s;background:var(--surface2);}
+.lib-dropzone:hover,.lib-dropzone.drag-over{border-color:var(--orange);background:rgba(255,152,0,.07);}
+.lib-dropzone.dz-done{border-color:var(--green2);background:rgba(76,175,80,.07);}
+@media(max-width:640px){#lib-detail-modal .lib-detail-grid{grid-template-columns:1fr !important;}}
 /* ─── GCODE DROP ZONE ────────────────────────────── */
 #gcode-dropzone{border:2px dashed var(--border);border-radius:8px;padding:14px 10px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:18px;background:var(--surface2);}
 #gcode-dropzone:hover,#gcode-dropzone.drag-over{border-color:var(--orange);background:rgba(255,152,0,.07);}
@@ -230,7 +242,7 @@ select option{background:var(--surface);}
     <div class="nav-item" data-view="gallery"><span class="nav-icon">📸</span> Print Gallery</div>
     <div class="nav-sep"></div>
     <div class="nav-item" data-view="fulfillment"><span class="nav-icon">✅</span> Fulfillment</div>
-    <div class="nav-item" data-view="pricing"><span class="nav-icon">💰</span> Pricing Calc</div>
+    <div class="nav-item" data-view="library"><span class="nav-icon">📁</span> Print Library</div>
     <div class="nav-item" data-view="cogs"><span class="nav-icon">🧮</span> COGS Calc</div>
     <div class="nav-sep"></div>
     <div class="nav-item" data-view="square"><span class="nav-icon">🟦</span> Square Sales</div>
@@ -453,51 +465,52 @@ select option{background:var(--surface);}
     </div>
 
     <!-- ── PRICING CALC ── -->
-    <div id="view-pricing" class="view">
-      <div class="grid2">
+    <!-- ─── Print Library View ──────────────────── -->
+    <div id="view-library" class="view">
+
+      <!-- GitHub Settings Bar (collapsed by default) -->
+      <div id="lib-settings-bar" style="display:none;margin-bottom:16px;">
         <div class="card">
-          <div class="section-title">Material Cost</div>
-          <div class="form-row"><label>Filament Type</label>
-            <select id="pc-type" onchange="calcPrice()">
-              <option value="0.018">PLA — $18/kg avg</option>
-              <option value="0.020">PLA+ — $20/kg avg</option>
-              <option value="0.022">PETG — $22/kg avg</option>
-              <option value="0.025">ABS/ASA — $25/kg avg</option>
-              <option value="0.030">PLA-CF — $30/kg avg</option>
-              <option value="custom">Custom…</option>
-            </select>
-          </div>
-          <div class="form-row" id="pc-custom-row" style="display:none;"><label>Custom Cost per gram ($)</label><input type="number" id="pc-custom" placeholder="0.020" step="0.001" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Print Weight (grams)</label><input type="number" id="pc-weight" placeholder="45" step="0.1" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Quantity</label><input type="number" id="pc-qty" placeholder="1" value="1" step="1" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Print Time (hrs)</label><input type="number" id="pc-hrs" placeholder="4" step="0.5" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Electricity ($/hr)</label><input type="number" id="pc-elec" placeholder="0.08" value="0.08" step="0.01" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Labor / Design ($/hr)</label><input type="number" id="pc-labor" placeholder="0" value="0" step="0.5" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Markup %</label><input type="number" id="pc-markup" placeholder="60" value="60" step="5" oninput="calcPrice()"></div>
-          <div class="form-row"><label>Shipping</label><input type="number" id="pc-ship" placeholder="0" value="0" step="0.25" oninput="calcPrice()"></div>
-        </div>
-        <div class="card">
-          <div class="section-title">Price Breakdown</div>
-          <table style="width:100%;">
-            <tr><td style="padding:8px 0;color:var(--muted);">Material cost</td><td class="text-right" id="pc-r-mat">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Electricity</td><td class="text-right" id="pc-r-elec">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Labor</td><td class="text-right" id="pc-r-labor">—</td></tr>
-            <tr style="border-top:1px solid var(--border);"><td style="padding:8px 0;font-weight:600;">Total Cost</td><td class="text-right font-mono" id="pc-r-cost">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Markup (×)</td><td class="text-right" id="pc-r-markup">—</td></tr>
-            <tr style="border-top:1px solid var(--orange);"><td style="padding:8px 0;font-weight:700;font-size:16px;">Suggested Price</td><td class="text-right font-mono text-orange" id="pc-r-price" style="font-size:22px;font-weight:700;">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Per Unit</td><td class="text-right" id="pc-r-unit">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Profit margin</td><td class="text-right" id="pc-r-margin">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">Gross profit</td><td class="text-right" id="pc-r-gp">—</td></tr>
-            <tr><td style="padding:8px 0;color:var(--muted);">With shipping</td><td class="text-right text-orange" id="pc-r-total">—</td></tr>
-          </table>
-          <div class="mt24">
-            <div class="section-title">Cost per gram reference</div>
-            <div style="font-size:12px;color:var(--muted);line-height:1.9;">
-              $15/kg = <strong>$0.015/g</strong> &nbsp;|&nbsp; $18/kg = <strong>$0.018/g</strong><br>
-              $20/kg = <strong>$0.020/g</strong> &nbsp;|&nbsp; $25/kg = <strong>$0.025/g</strong>
+          <div class="section-title">⚙️ GitHub Token Setup</div>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 12px;">Go to <strong>github.com → Settings → Developer settings → Fine-grained tokens → Generate new token</strong>. Set Repository access to <em>ns3dw-dashboard only</em>, grant <strong>Contents: Read &amp; Write</strong>, then paste below.</p>
+          <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <label style="font-size:12px;color:var(--muted);">Personal Access Token</label>
+              <input type="password" id="lib-pat-input" placeholder="github_pat_..." style="margin-top:4px;">
             </div>
+            <button class="btn btn-orange" onclick="saveLibPAT()" style="height:38px;">Save</button>
+            <button class="btn" onclick="testLibPAT()" style="height:38px;">Test</button>
           </div>
+          <div id="lib-pat-status" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
         </div>
+      </div>
+
+      <!-- No-token warning -->
+      <div id="lib-pat-warning" style="display:none;margin-bottom:16px;">
+        <div class="card" style="border-color:var(--orange);background:rgba(255,152,0,.07);text-align:center;padding:36px 20px;">
+          <div style="font-size:36px;margin-bottom:10px;">🔑</div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:6px;">GitHub token required</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">One-time setup — takes about 60 seconds. Your files are stored in your GitHub repo, accessible from any device.</div>
+          <button class="btn btn-orange" onclick="toggleLibSettings()">⚙️ Set Up Token</button>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="lib-search" placeholder="🔍 Search prints..." style="flex:1;min-width:160px;" oninput="renderLibraryGrid()">
+        <select id="lib-cat-filter" onchange="renderLibraryGrid()" style="width:180px;"><option value="">All Categories</option></select>
+        <button class="btn btn-orange" onclick="openLibUpload()">+ Upload Print</button>
+        <button class="btn" onclick="toggleLibSettings()" title="GitHub Settings" style="padding:8px 14px;">⚙️</button>
+      </div>
+
+      <!-- Card grid -->
+      <div id="lib-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;"></div>
+
+      <!-- Empty state -->
+      <div id="lib-empty" style="display:none;text-align:center;padding:60px 20px;color:var(--muted);">
+        <div style="font-size:48px;margin-bottom:16px;">📁</div>
+        <div style="font-size:16px;font-weight:600;color:var(--text);">No prints in library</div>
+        <div style="font-size:13px;margin-top:8px;">Upload your first .3mf + .gcode pair to get started</div>
       </div>
     </div>
 
@@ -927,7 +940,7 @@ const viewMeta = {
   inventory:   { title: 'Inventory',       action: '+ Add Spool' },
   gallery:     { title: 'Print Gallery',   action: '📷 Upload' },
   fulfillment: { title: 'Fulfillment',     action: null },
-  pricing:     { title: 'Pricing Calc',    action: null },
+  library:     { title: 'Print Library',   action: null },
   cogs:        { title: 'COGS Calculator', action: null },
   square:      { title: 'Square Sales',    action: null },
 };
@@ -944,7 +957,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
     const btn = document.getElementById('primary-action');
     if (meta.action) { btn.textContent = meta.action; btn.style.display = ''; }
     else btn.style.display = 'none';
-    if (view === 'pricing') calcPrice();
+    if (view === 'library') loadLibrary();
     if (view === 'cogs') calcCOGS();
   });
 });
@@ -1738,47 +1751,359 @@ function saveChecklistState(oid, i, val) {
 }
 
 // ═══════════════════════════════════════════════════════
-// PRICING CALCULATOR
+// PRINT LIBRARY — GitHub-backed STL/3MF file store
 // ═══════════════════════════════════════════════════════
-document.getElementById('pc-type').addEventListener('change', function() {
-  document.getElementById('pc-custom-row').style.display = this.value === 'custom' ? 'block' : 'none';
-  calcPrice();
-});
+const LIB_REPO      = 'naturalstate3dworks-gif/ns3dw-dashboard';
+const LIB_BRANCH    = 'main';
+const LIB_META_PATH = 'stl-library/metadata.json';
+const LIB_FILES_DIR = 'stl-library/files';
+const LIB_CATS      = ['Keychains','Coasters','Signs & Plaques','Fundraiser Items','Military / FRG','Custom Parts','Templates','Other'];
 
-function calcPrice() {
-  const typeEl = document.getElementById('pc-type');
-  let cpg = typeEl.value === 'custom'
-    ? (parseFloat(document.getElementById('pc-custom').value) || 0)
-    : parseFloat(typeEl.value) || 0.018;
-  const weight  = parseFloat(document.getElementById('pc-weight').value) || 0;
-  const qty     = parseInt(document.getElementById('pc-qty').value) || 1;
-  const hrs     = parseFloat(document.getElementById('pc-hrs').value) || 0;
-  const elec    = parseFloat(document.getElementById('pc-elec').value) || 0.08;
-  const labor   = parseFloat(document.getElementById('pc-labor').value) || 0;
-  const markup  = parseFloat(document.getElementById('pc-markup').value) || 60;
-  const ship    = parseFloat(document.getElementById('pc-ship').value) || 0;
+let libState = { metadata: null, currentFile: null, uploadFiles: {}, thumbnails: {}, loaded: false };
 
-  const matCost   = weight * qty * cpg;
-  const elecCost  = hrs * qty * elec;
-  const laborCost = hrs * qty * labor;
-  const totalCost = matCost + elecCost + laborCost;
-  const price     = totalCost * (1 + markup / 100);
-  const perUnit   = price / qty;
-  const gp        = price - totalCost;
-  const margin    = totalCost > 0 ? (gp / price * 100) : 0;
+function getLibPAT() { return localStorage.getItem('ns3dw_gh_pat') || ''; }
 
-  const $ = n => '$' + n.toFixed(2);
-  document.getElementById('pc-r-mat').textContent    = $(matCost);
-  document.getElementById('pc-r-elec').textContent   = $(elecCost);
-  document.getElementById('pc-r-labor').textContent  = $(laborCost);
-  document.getElementById('pc-r-cost').textContent   = $(totalCost);
-  document.getElementById('pc-r-markup').textContent = markup + '%';
-  document.getElementById('pc-r-price').textContent  = $(price);
-  document.getElementById('pc-r-unit').textContent   = $(perUnit) + '/unit';
-  document.getElementById('pc-r-margin').textContent = margin.toFixed(1) + '%';
-  document.getElementById('pc-r-gp').textContent     = $(gp);
-  document.getElementById('pc-r-total').textContent  = $( price + ship);
+// ── GitHub API helpers ──────────────────────────────────
+async function ghGet(path) {
+  const r = await fetch(`https://api.github.com/repos/${LIB_REPO}/contents/${path}`, {
+    headers: { Authorization: `token ${getLibPAT()}`, Accept: 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}: ${path}`);
+  return r.json();
 }
+async function ghPutText(path, text, sha) {
+  const body = { message: `NS3DW: update ${path.split('/').pop()}`, content: btoa(unescape(encodeURIComponent(text))), branch: LIB_BRANCH };
+  if (sha) body.sha = sha;
+  const r = await fetch(`https://api.github.com/repos/${LIB_REPO}/contents/${path}`, {
+    method: 'PUT', headers: { Authorization: `token ${getLibPAT()}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return r.json();
+}
+async function ghPutBin(path, arrayBuffer, sha) {
+  const bytes = new Uint8Array(arrayBuffer);
+  let bin = ''; for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+  const body = { message: `NS3DW: upload ${path.split('/').pop()}`, content: btoa(bin), branch: LIB_BRANCH };
+  if (sha) body.sha = sha;
+  const r = await fetch(`https://api.github.com/repos/${LIB_REPO}/contents/${path}`, {
+    method: 'PUT', headers: { Authorization: `token ${getLibPAT()}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.message || r.status); }
+  return r.json();
+}
+async function ghDelete(path, sha) {
+  await fetch(`https://api.github.com/repos/${LIB_REPO}/contents/${path}`, {
+    method: 'DELETE', headers: { Authorization: `token ${getLibPAT()}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: `NS3DW: delete ${path.split('/').pop()}`, sha, branch: LIB_BRANCH })
+  });
+}
+
+// ── Metadata ────────────────────────────────────────────
+async function loadLibMeta() {
+  try {
+    const data = await ghGet(LIB_META_PATH);
+    const text = decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
+    libState.metadata = JSON.parse(text);
+    libState.metadata._sha = data.sha;
+  } catch(e) {
+    if (String(e).includes('404')) {
+      libState.metadata = { categories: [...LIB_CATS], files: [] };
+      await saveLibMeta();
+    } else throw e;
+  }
+}
+async function saveLibMeta() {
+  const { _sha, ...clean } = libState.metadata;
+  const result = await ghPutText(LIB_META_PATH, JSON.stringify(clean, null, 2), _sha);
+  libState.metadata._sha = result.content.sha;
+}
+
+// ── Load / Render ────────────────────────────────────────
+async function loadLibrary() {
+  if (!getLibPAT()) { document.getElementById('lib-pat-warning').style.display='block'; document.getElementById('lib-grid').innerHTML=''; document.getElementById('lib-empty').style.display='none'; return; }
+  document.getElementById('lib-pat-warning').style.display='none';
+  if (libState.loaded) { renderLibraryGrid(); return; }
+  document.getElementById('lib-grid').innerHTML='<div style="color:var(--muted);font-size:13px;padding:20px;">Loading library...</div>';
+  try {
+    await loadLibMeta();
+    libState.loaded = true;
+    populateLibCats();
+    renderLibraryGrid();
+  } catch(e) {
+    document.getElementById('lib-grid').innerHTML=`<div style="color:#ef9a9a;font-size:13px;padding:20px;">Error loading library: ${e.message}</div>`;
+  }
+}
+
+function populateLibCats() {
+  const cats = libState.metadata.categories || LIB_CATS;
+  const opts = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('lib-cat-filter').innerHTML = '<option value="">All Categories</option>' + opts;
+  ['lib-up-cat','lib-d-cat'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=opts; });
+}
+
+function renderLibraryGrid() {
+  const search = (document.getElementById('lib-search')?.value||'').toLowerCase();
+  const catF   = document.getElementById('lib-cat-filter')?.value||'';
+  const files  = (libState.metadata?.files||[]).filter(f => {
+    if (catF && f.category!==catF) return false;
+    if (search && !f.name.toLowerCase().includes(search) && !(f.description||'').toLowerCase().includes(search) && !(f.orderIds||[]).join(' ').toLowerCase().includes(search)) return false;
+    return true;
+  });
+  const grid  = document.getElementById('lib-grid');
+  const empty = document.getElementById('lib-empty');
+  if (!files.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  grid.innerHTML = files.map(f=>`
+    <div class="lib-card" onclick="openLibDetail('${f.id}')">
+      <div class="lib-thumb" id="lthumb-${f.id}">
+        ${libState.thumbnails[f.id]?`<img src="${libState.thumbnails[f.id]}" style="width:100%;height:100%;object-fit:cover;">`:`<div class="lib-thumb-placeholder">📦</div>`}
+      </div>
+      <div class="lib-card-body">
+        <div class="lib-card-name" title="${f.name}">${f.name}</div>
+        <div style="margin-top:5px;">
+          <span class="badge badge-pending" style="font-size:10px;">${f.category}</span>
+          ${f.gcodeFile?'<span style="font-size:10px;color:var(--green2);margin-left:5px;">● gcode</span>':''}
+        </div>
+        ${f.orderIds?.length?`<div style="font-size:10px;color:var(--muted);margin-top:4px;">Orders: ${f.orderIds.join(', ')}</div>`:''}
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;">${f.uploadDate||''}</div>
+      </div>
+    </div>`).join('');
+  // Lazy-load thumbnails
+  files.filter(f=>!libState.thumbnails[f.id]&&f.thumbnailPath).forEach(f=>fetchLibThumb(f));
+}
+
+async function fetchLibThumb(file) {
+  try {
+    const url=`https://raw.githubusercontent.com/${LIB_REPO}/${LIB_BRANCH}/${file.thumbnailPath}?t=${Date.now()}`;
+    const res=await fetch(url); if(!res.ok) return;
+    const blob=await res.blob();
+    libState.thumbnails[file.id]=URL.createObjectURL(blob);
+    const el=document.getElementById('lthumb-'+file.id);
+    if(el) el.innerHTML=`<img src="${libState.thumbnails[file.id]}" style="width:100%;height:100%;object-fit:cover;">`;
+  } catch(e){/*silent*/}
+}
+
+// ── Upload ───────────────────────────────────────────────
+function openLibUpload() {
+  if (!getLibPAT()) { toast('Set your GitHub token in ⚙️ first'); toggleLibSettings(); return; }
+  libState.uploadFiles = {};
+  ['lib-up-name','lib-up-desc'].forEach(id=>document.getElementById(id).value='');
+  ['lib-3mf-name','lib-gcode-name'].forEach(id=>document.getElementById(id).textContent='');
+  ['lib-dz-3mf','lib-dz-gcode'].forEach(id=>document.getElementById(id).classList.remove('dz-done'));
+  document.getElementById('lib-up-preview').innerHTML='<span style="color:var(--muted);font-size:13px;">Thumbnail auto-extracted from .3mf</span>';
+  document.getElementById('lib-up-error').style.display='none';
+  populateLibCats();
+  document.getElementById('lib-upload-modal').classList.add('open');
+}
+
+async function handleLib3MF(file) {
+  if (!file) return;
+  libState.uploadFiles.threemf = file;
+  document.getElementById('lib-3mf-name').textContent = file.name;
+  document.getElementById('lib-dz-3mf').classList.add('dz-done');
+  if (!document.getElementById('lib-up-name').value)
+    document.getElementById('lib-up-name').value = file.name.replace(/\.3mf$/i,'');
+  document.getElementById('lib-3mf-input').value='';
+  // Extract Bambu thumbnail
+  try {
+    const ab  = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(ab);
+    const thumbPaths=['Metadata/plate_1.png','Thumbnails/thumbnail.png','thumbnail.png','preview.png'];
+    let thumbBlob=null;
+    for (const p of thumbPaths) { const e=zip.file(p); if(e){thumbBlob=await e.async('blob');break;} }
+    if (!thumbBlob) {
+      const pngKey=Object.keys(zip.files).find(k=>k.toLowerCase().endsWith('.png')&&!zip.files[k].dir);
+      if (pngKey) thumbBlob=await zip.file(pngKey).async('blob');
+    }
+    if (thumbBlob) {
+      libState.uploadFiles.thumbBlob=thumbBlob;
+      const url=URL.createObjectURL(thumbBlob);
+      document.getElementById('lib-up-preview').innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:contain;border-radius:6px;">`;
+    }
+  } catch(e){ console.warn('3MF thumb extract:',e); }
+}
+
+function handleLibGcode(file) {
+  if (!file) return;
+  libState.uploadFiles.gcode=file;
+  document.getElementById('lib-gcode-name').textContent=file.name;
+  document.getElementById('lib-dz-gcode').classList.add('dz-done');
+  document.getElementById('lib-gcode-input').value='';
+}
+
+async function saveLibraryFile() {
+  const name=document.getElementById('lib-up-name').value.trim();
+  const errEl=document.getElementById('lib-up-error');
+  if (!name) { errEl.textContent='Enter a display name'; errEl.style.display='block'; return; }
+  if (!libState.uploadFiles.threemf) { errEl.textContent='Select a .3mf file'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  const btn=document.getElementById('lib-save-btn'); btn.textContent='Uploading…'; btn.disabled=true;
+  try {
+    const id='lib_'+Date.now();
+    const safe=name.replace(/[^a-zA-Z0-9_-]/g,'_');
+    const tf=`${id}_${safe}.3mf`, gf=libState.uploadFiles.gcode?`${id}_${safe}.gcode`:null, thf=libState.uploadFiles.thumbBlob?`${id}_thumb.png`:null;
+    await ghPutBin(`${LIB_FILES_DIR}/${tf}`, await libState.uploadFiles.threemf.arrayBuffer(), null);
+    if (gf) await ghPutBin(`${LIB_FILES_DIR}/${gf}`, await libState.uploadFiles.gcode.arrayBuffer(), null);
+    if (thf) await ghPutBin(`${LIB_FILES_DIR}/${thf}`, await libState.uploadFiles.thumbBlob.arrayBuffer(), null);
+    const entry={
+      id, name,
+      threemfFile:tf, gcodeFile:gf,
+      thumbnailFile:thf, thumbnailPath:thf?`${LIB_FILES_DIR}/${thf}`:null,
+      category:document.getElementById('lib-up-cat').value,
+      description:document.getElementById('lib-up-desc').value.trim(),
+      orderIds:[],
+      uploadDate:new Date().toLocaleDateString(),
+      threemfSize:libState.uploadFiles.threemf.size,
+      gcodeSize:libState.uploadFiles.gcode?.size||0
+    };
+    if (!libState.metadata.files) libState.metadata.files=[];
+    libState.metadata.files.unshift(entry);
+    await saveLibMeta();
+    if (libState.uploadFiles.thumbBlob) libState.thumbnails[id]=URL.createObjectURL(libState.uploadFiles.thumbBlob);
+    closeModal('lib-upload-modal');
+    renderLibraryGrid();
+    toast('Saved to library ✓');
+  } catch(e) { errEl.textContent='Upload failed: '+e.message; errEl.style.display='block'; console.error(e); }
+  finally { btn.textContent='💾 Save to Library'; btn.disabled=false; }
+}
+
+// ── Detail Modal ─────────────────────────────────────────
+function openLibDetail(id) {
+  const file=libState.metadata.files.find(f=>f.id===id); if(!file) return;
+  libState.currentFile=id;
+  document.getElementById('lib-d-title').textContent=file.name;
+  document.getElementById('lib-d-name').value=file.name;
+  document.getElementById('lib-d-desc').value=file.description||'';
+  populateLibCats();
+  document.getElementById('lib-d-cat').value=file.category||'';
+  document.getElementById('lib-d-meta').innerHTML=`Uploaded: ${file.uploadDate||'—'} &nbsp;|&nbsp; 3MF: ${fmtBytes(file.threemfSize)}${file.gcodeSize?` &nbsp;|&nbsp; Gcode: ${fmtBytes(file.gcodeSize)}`:''}`;
+  // Preview
+  const prev=document.getElementById('lib-d-preview');
+  const thumb=libState.thumbnails[id]||(file.thumbnailPath?`https://raw.githubusercontent.com/${LIB_REPO}/${LIB_BRANCH}/${file.thumbnailPath}`:null);
+  prev.innerHTML=thumb?`<img src="${thumb}" style="width:100%;height:100%;object-fit:contain;" onerror="this.parentElement.innerHTML='<div style=\'color:var(--muted)\'>No preview</div>'">`:'<div style="color:var(--muted);font-size:13px;">No preview</div>';
+  renderDetailOrderTags(file);
+  document.getElementById('lib-d-dl-3mf').onclick=()=>dlLibFile(file.threemfFile,file.name+'.3mf');
+  document.getElementById('lib-d-dl-gcode').onclick=()=>file.gcodeFile?dlLibFile(file.gcodeFile,file.name+'.gcode'):toast('No gcode attached');
+  document.getElementById('lib-d-cogs').onclick=()=>libLoadCOGS(file);
+  document.getElementById('lib-d-order').onclick=()=>libCreateOrder(file);
+  document.getElementById('lib-d-delete').onclick=()=>libDeleteFile(file);
+  document.getElementById('lib-detail-modal').classList.add('open');
+}
+
+function renderDetailOrderTags(file) {
+  const el=document.getElementById('lib-d-orders-list');
+  if (!file.orderIds?.length){ el.innerHTML='<span style="color:var(--muted);font-size:12px;">No orders linked</span>'; return; }
+  el.innerHTML=file.orderIds.map(o=>`<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:12px;margin:2px;">${o}<span onclick="removeOrderTag('${o}')" style="cursor:pointer;color:var(--muted);">✕</span></span>`).join('');
+}
+
+async function addOrderTag() {
+  const input=document.getElementById('lib-d-order-input');
+  const oid=input.value.trim(); if(!oid) return;
+  const file=libState.metadata.files.find(f=>f.id===libState.currentFile); if(!file) return;
+  if(!file.orderIds) file.orderIds=[];
+  if(!file.orderIds.includes(oid)){file.orderIds.push(oid);await saveLibMeta();renderDetailOrderTags(file);renderLibraryGrid();}
+  input.value='';
+}
+
+async function removeOrderTag(oid) {
+  const file=libState.metadata.files.find(f=>f.id===libState.currentFile); if(!file) return;
+  file.orderIds=file.orderIds.filter(o=>o!==oid);
+  await saveLibMeta(); renderDetailOrderTags(file); renderLibraryGrid();
+}
+
+async function saveDetailChanges() {
+  const file=libState.metadata.files.find(f=>f.id===libState.currentFile); if(!file) return;
+  file.name=document.getElementById('lib-d-name').value.trim()||file.name;
+  file.category=document.getElementById('lib-d-cat').value;
+  file.description=document.getElementById('lib-d-desc').value.trim();
+  await saveLibMeta(); renderLibraryGrid();
+  document.getElementById('lib-d-title').textContent=file.name;
+  toast('Changes saved ✓');
+}
+
+function dlLibFile(filename, dlName) {
+  const url=`https://raw.githubusercontent.com/${LIB_REPO}/${LIB_BRANCH}/${LIB_FILES_DIR}/${filename}`;
+  const a=document.createElement('a'); a.href=url; a.download=dlName||filename; a.click();
+}
+
+async function libLoadCOGS(file) {
+  if(!file.gcodeFile){toast('No gcode attached to this print');return;}
+  toast('Fetching gcode from GitHub…');
+  try {
+    const url=`https://raw.githubusercontent.com/${LIB_REPO}/${LIB_BRANCH}/${LIB_FILES_DIR}/${file.gcodeFile}`;
+    const res=await fetch(url); if(!res.ok) throw new Error('Could not fetch gcode');
+    const text=await res.text();
+    const {weight,timeHours}=parseGCode(text);
+    if(weight) document.getElementById('cogs-weight').value=weight.toFixed(2);
+    if(timeHours&&timeHours>0) document.getElementById('cogs-time').value=timeHours.toFixed(2);
+    document.querySelector('[data-view="cogs"]').click();
+    closeModal('lib-detail-modal');
+    calcCOGS();
+    toast('COGS loaded ✓');
+  } catch(e){toast('Error: '+e.message);}
+}
+
+function libCreateOrder(file) {
+  document.querySelector('[data-view="orders"]').click();
+  closeModal('lib-detail-modal');
+  setTimeout(()=>{
+    openOrderModal();
+    const p=document.getElementById('f-product'); if(p) p.value=file.name;
+    const n=document.getElementById('f-notes'); if(n) n.value=`Library file: ${file.name}${file.gcodeFile?' (gcode attached)':''}`;
+  },150);
+}
+
+async function libDeleteFile(file) {
+  if(!confirm(`Delete "${file.name}" from library?\n\nThis removes the files from GitHub and cannot be undone.`)) return;
+  const btn=document.getElementById('lib-d-delete'); btn.textContent='Deleting…'; btn.disabled=true;
+  try {
+    for (const fname of [file.threemfFile,file.gcodeFile,file.thumbnailFile].filter(Boolean)) {
+      try { const d=await ghGet(`${LIB_FILES_DIR}/${fname}`); await ghDelete(`${LIB_FILES_DIR}/${fname}`,d.sha); } catch(e){/*already gone*/}
+    }
+    libState.metadata.files=libState.metadata.files.filter(f=>f.id!==file.id);
+    await saveLibMeta();
+    delete libState.thumbnails[file.id];
+    closeModal('lib-detail-modal'); renderLibraryGrid(); toast('Deleted ✓');
+  } catch(e){toast('Delete failed: '+e.message); btn.textContent='🗑 Delete'; btn.disabled=false;}
+}
+
+// ── Settings ─────────────────────────────────────────────
+function toggleLibSettings() {
+  const bar=document.getElementById('lib-settings-bar');
+  bar.style.display=bar.style.display==='none'?'block':'none';
+  if(bar.style.display==='block') document.getElementById('lib-pat-input').value=getLibPAT();
+}
+function saveLibPAT() {
+  const pat=document.getElementById('lib-pat-input').value.trim();
+  if(!pat){toast('Enter a token');return;}
+  localStorage.setItem('ns3dw_gh_pat',pat);
+  libState.loaded=false; toggleLibSettings(); loadLibrary(); toast('Token saved ✓');
+}
+async function testLibPAT() {
+  const pat=document.getElementById('lib-pat-input').value.trim();
+  const st=document.getElementById('lib-pat-status');
+  if(!pat){st.textContent='⚠ Enter a token first';st.style.color='#ef9a9a';return;}
+  st.textContent='Testing…'; st.style.color='var(--muted)';
+  try {
+    const r=await fetch(`https://api.github.com/repos/${LIB_REPO}`,{headers:{Authorization:`token ${pat}`}});
+    if(r.ok){st.textContent='✓ Connected to ns3dw-dashboard';st.style.color='#81c784';}
+    else{st.textContent='✗ Auth failed — check token permissions';st.style.color='#ef9a9a';}
+  } catch(e){st.textContent='✗ Network error';st.style.color='#ef9a9a';}
+}
+
+function fmtBytes(b){if(!b)return'—';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB';}
+
+// Wire up drop zones on upload modal
+document.addEventListener('DOMContentLoaded',()=>{
+  [['lib-dz-3mf',f=>handleLib3MF(f)],['lib-dz-gcode',f=>handleLibGcode(f)]].forEach(([id,handler])=>{
+    const dz=document.getElementById(id); if(!dz) return;
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+    dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)handler(f);});
+  });
+});
 
 // ═══════════════════════════════════════════════════════
 // UTILITIES
@@ -1819,10 +2144,8 @@ function toast(msg, type = 'ok') {
 // INIT
 // ═══════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  // Set today's date in pricing inputs
+  // Set today's date default
   document.getElementById('add-date').value = new Date().toISOString().split('T')[0];
-  // Start pricing calc
-  calcPrice();
   // Load Quagga lazily
   const script = document.createElement('script');
   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js';
@@ -3538,6 +3861,82 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+
+<!-- ─── Library Upload Modal ─────────────────── -->
+<div class="overlay" id="lib-upload-modal">
+  <div class="modal" style="width:min(580px,96vw);">
+    <div class="modal-head">
+      <h3>Upload New Print</h3>
+      <button class="close-btn" onclick="closeModal('lib-upload-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="lib-up-preview" style="width:100%;height:180px;background:var(--surface2);border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid var(--border);"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div>
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">3MF Project File *</label>
+          <div id="lib-dz-3mf" class="lib-dropzone" onclick="document.getElementById('lib-3mf-input').click()">
+            <div style="font-size:22px;">📦</div><div style="font-size:12px;margin-top:4px;">Drop .3mf or click</div>
+          </div>
+          <input type="file" id="lib-3mf-input" accept=".3mf" style="display:none;" onchange="handleLib3MF(this.files[0])">
+          <div id="lib-3mf-name" style="font-size:11px;color:var(--green2);margin-top:4px;word-break:break-all;"></div>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Gcode File <span style="opacity:.6;">(optional)</span></label>
+          <div id="lib-dz-gcode" class="lib-dropzone" onclick="document.getElementById('lib-gcode-input').click()">
+            <div style="font-size:22px;">🖨️</div><div style="font-size:12px;margin-top:4px;">Drop .gcode or click</div>
+          </div>
+          <input type="file" id="lib-gcode-input" accept=".gcode,.gco,.g" style="display:none;" onchange="handleLibGcode(this.files[0])">
+          <div id="lib-gcode-name" style="font-size:11px;color:var(--green2);margin-top:4px;word-break:break-all;"></div>
+        </div>
+      </div>
+      <div class="form-row"><label>Display Name *</label><input type="text" id="lib-up-name" placeholder="e.g. Hexagon Coaster V1"></div>
+      <div class="form-row"><label>Category</label><select id="lib-up-cat"></select></div>
+      <div class="form-row"><label>Description / Notes</label><textarea id="lib-up-desc" placeholder="Material, settings, customer notes…"></textarea></div>
+      <div id="lib-up-error" style="display:none;color:#ef9a9a;font-size:12px;margin-bottom:8px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('lib-upload-modal')">Cancel</button>
+      <button class="btn btn-orange" onclick="saveLibraryFile()" id="lib-save-btn">💾 Save to Library</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Library Detail Modal ─────────────────── -->
+<div class="overlay" id="lib-detail-modal">
+  <div class="modal" style="width:min(760px,96vw);">
+    <div class="modal-head">
+      <h3 id="lib-d-title">Print Details</h3>
+      <button class="close-btn" onclick="closeModal('lib-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body lib-detail-grid" style="display:grid;grid-template-columns:240px 1fr;gap:20px;">
+      <div>
+        <div id="lib-d-preview" style="width:100%;aspect-ratio:1;background:var(--surface2);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:12px;border:1px solid var(--border);"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn" id="lib-d-dl-3mf" style="font-size:12px;">⬇️ Download 3MF</button>
+          <button class="btn" id="lib-d-dl-gcode" style="font-size:12px;">⬇️ Download Gcode</button>
+          <button class="btn btn-orange" id="lib-d-cogs" style="font-size:12px;">🧮 Calculate COGS</button>
+          <button class="btn" id="lib-d-order" style="font-size:12px;background:#1b5e20;color:#fff;">📋 Create Order</button>
+          <button class="btn" id="lib-d-delete" style="font-size:12px;background:#b71c1c;color:#fff;">🗑 Delete</button>
+        </div>
+      </div>
+      <div>
+        <div class="form-row"><label>Display Name</label><input type="text" id="lib-d-name"></div>
+        <div class="form-row"><label>Category</label><select id="lib-d-cat"></select></div>
+        <div class="form-row"><label>Description / Notes</label><textarea id="lib-d-desc" style="min-height:80px;"></textarea></div>
+        <div class="form-row">
+          <label>Linked Orders</label>
+          <div id="lib-d-orders-list" style="margin-bottom:6px;min-height:24px;"></div>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="lib-d-order-input" placeholder="e.g. NS3D-042">
+            <button class="btn" onclick="addOrderTag()" style="white-space:nowrap;padding:8px 12px;">+ Add</button>
+          </div>
+        </div>
+        <div id="lib-d-meta" style="font-size:11px;color:var(--muted);margin-bottom:12px;"></div>
+        <button class="btn btn-orange" onclick="saveDetailChanges()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Equipment Modal -->
 <div class="overlay" id="equip-modal">
