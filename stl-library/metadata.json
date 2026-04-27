@@ -9,5 +9,20 @@
     "Templates",
     "Other"
   ],
-  "files": []
+  "files": [
+    {
+      "id": "lib_1777318667648",
+      "name": "K Kelly Ring Holder",
+      "threemfFile": "lib_1777318667648_K_Kelly_Ring_Holder.3mf",
+      "gcodeFile": "lib_1777318667648_K_Kelly_Ring_Holder.gcode",
+      "thumbnailFile": "lib_1777318667648_thumb.png",
+      "thumbnailPath": "stl-library/files/lib_1777318667648_thumb.png",
+      "category": "Signs & Plaques",
+      "description": "Baseball Champion Ring V-1",
+      "orderIds": [],
+      "uploadDate": "4/27/2026",
+      "threemfSize": 1674879,
+      "gcodeSize": 10112884
+    }
+  ]
 }
