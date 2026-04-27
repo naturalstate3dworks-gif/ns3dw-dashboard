@@ -101,6 +101,17 @@ tbody tr:last-child{border-bottom:none;}
 .badge-frg{background:#4a148c33;color:#ce93d8;}
 .badge-pending{background:#f57f1733;color:#ffcc02;}
 
+/* ─── GCODE DROP ZONE ────────────────────────────── */
+#gcode-dropzone{border:2px dashed var(--border);border-radius:8px;padding:14px 10px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:18px;background:var(--surface2);}
+#gcode-dropzone:hover,#gcode-dropzone.drag-over{border-color:var(--orange);background:rgba(255,152,0,.07);}
+#gcode-dropzone .dz-icon{font-size:22px;margin-bottom:4px;}
+#gcode-dropzone .dz-label{font-size:12px;color:var(--muted);}
+#gcode-dropzone .dz-label span{color:var(--orange);font-weight:600;}
+#gcode-parsed{display:none;background:rgba(76,175,80,.1);border:1px solid rgba(76,175,80,.4);border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--text);}
+#gcode-parsed .gp-row{display:flex;justify-content:space-between;align-items:center;}
+#gcode-parsed .gp-vals{color:#81c784;font-weight:600;}
+#gcode-parsed .gp-clear{cursor:pointer;color:var(--muted);font-size:11px;text-decoration:underline;margin-top:4px;display:inline-block;}
+#gcode-error{display:none;background:rgba(244,67,54,.1);border:1px solid rgba(244,67,54,.4);border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#ef9a9a;}
 /* ─── FORMS / INPUTS ──────────────────────────────── */
 .form-row{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
 .form-row label{font-size:12px;color:var(--muted);font-weight:500;}
@@ -220,12 +231,11 @@ select option{background:var(--surface);}
     <div class="nav-sep"></div>
     <div class="nav-item" data-view="fulfillment"><span class="nav-icon">✅</span> Fulfillment</div>
     <div class="nav-item" data-view="pricing"><span class="nav-icon">💰</span> Pricing Calc</div>
+    <div class="nav-item" data-view="cogs"><span class="nav-icon">🧮</span> COGS Calc</div>
     <div class="nav-sep"></div>
     <div class="nav-item" data-view="square"><span class="nav-icon">🟦</span> Square Sales</div>
     <div class="nav-sep"></div>
     <div class="nav-item" data-view="purchases"><span class="nav-icon">🛒</span> Purchases</div>
-    <div class="nav-sep"></div>
-    <div class="nav-item" data-view="glossary"><span class="nav-icon">📖</span> Glossary</div>
   </nav>
   <div class="sidebar-foot">
     NS3DW Master 2026
@@ -250,7 +260,7 @@ select option{background:var(--surface);}
         <div class="kpi"><div class="kpi-label">Active Orders</div><div class="kpi-value" id="kpi-active">—</div><div class="kpi-sub">In progress</div></div>
         <div class="kpi orange"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpi-revenue">—</div><div class="kpi-sub">All time</div></div>
         <div class="kpi yellow"><div class="kpi-label">Gross Profit</div><div class="kpi-value" id="kpi-profit">—</div><div class="kpi-sub">Rev minus material</div></div>
-        <div class="kpi info"><div class="kpi-label" id="kpi-frg-label">FRG Orders</div><div class="kpi-value" id="kpi-frg">—</div><div class="kpi-sub">Fundraiser line items</div></div>
+        <div class="kpi info"><div class="kpi-label">FRG Orders</div><div class="kpi-value" id="kpi-frg">—</div><div class="kpi-sub">Fundraiser line items</div></div>
         <div class="kpi"><div class="kpi-label">Customers</div><div class="kpi-value" id="kpi-customers">—</div><div class="kpi-sub">Unique accounts</div></div>
       </div>
       <div class="grid2">
@@ -491,6 +501,202 @@ select option{background:var(--surface);}
       </div>
     </div>
 
+    <!-- ─── COGS Calculator View ─────────────────── -->
+    <div id="view-cogs" class="view">
+      <div class="grid2">
+        <div class="card">
+          <div class="section-title">Print Parameters</div>
+
+          <!-- G-code Drop Zone -->
+          <div id="gcode-dropzone" onclick="document.getElementById('gcode-file-input').click()">
+            <div class="dz-icon">📂</div>
+            <div class="dz-label">Drop a <span>.gcode</span> file here, or click to browse</div>
+            <div class="dz-label" style="margin-top:3px;font-size:11px;">Auto-fills weight &amp; print time</div>
+          </div>
+          <input type="file" id="gcode-file-input" accept=".gcode,.gco,.g" style="display:none;" onchange="handleGCodeFile(this.files[0])">
+          <div id="gcode-parsed">
+            <div class="gp-row">
+              <span>Parsed from gcode:</span>
+              <span class="gp-vals" id="gp-summary">—</span>
+            </div>
+            <span class="gp-clear" onclick="clearGCodeParse()">✕ clear</span>
+          </div>
+          <div id="gcode-error"></div>
+
+          <div class="form-row">
+            <label>Filament Brand</label>
+            <select id="cogs-brand" onchange="calcCOGS()">
+              <option value="bambu">Bambu Lab</option>
+              <option value="polymaker">Polymaker</option>
+              <option value="sunlu">Sunlu</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Filament Type</label>
+            <select id="cogs-material" onchange="calcCOGS()">
+              <option value="PETG">PETG</option>
+              <option value="ABS">ABS</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Print Weight (grams)</label>
+            <input type="number" id="cogs-weight" placeholder="37.81" value="37.81" step="0.01" oninput="calcCOGS()">
+          </div>
+
+          <div class="form-row">
+            <label>Print Time (hours)</label>
+            <input type="number" id="cogs-time" placeholder="2.37" value="2.37" step="0.01" oninput="calcCOGS()">
+          </div>
+
+          <div class="section-title" style="margin-top:20px;">Post-Processing</div>
+
+          <div class="form-row">
+            <label>Include Mounting Tape</label>
+            <select id="cogs-tape" onchange="calcCOGS()">
+              <option value="1">Yes — $0.30/print</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Include Paint/Primer</label>
+            <select id="cogs-paint" onchange="calcCOGS()">
+              <option value="1">Yes — $1.50/print</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Include Arbor Press Depreciation</label>
+            <select id="cogs-arbor" onchange="calcCOGS()">
+              <option value="1">Yes — $0.03/print</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label>Target Markup</label>
+            <select id="cogs-markup" onchange="calcCOGS()">
+              <option value="1.5">50%</option>
+              <option value="2.0" selected>100%</option>
+              <option value="2.5">150%</option>
+              <option value="3.0">200%</option>
+            </select>
+          </div>
+
+          <button class="btn btn-orange" style="width:100%;margin-top:8px;font-size:14px;padding:10px;" onclick="calcCOGS()">🧮 Calculate COGS</button>
+        </div>
+
+        <div class="card">
+          <div class="section-title">COGS Breakdown</div>
+          <table style="width:100%;">
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Filament (<span id="cogs-r-wt">—</span>g + 5% waste)</td>
+              <td class="text-right" id="cogs-r-fil">—</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Electricity (<span id="cogs-r-kwh">—</span> kWh @ $0.12)</td>
+              <td class="text-right" id="cogs-r-elec">—</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Mounting tape</td>
+              <td class="text-right" id="cogs-r-tape">—</td>
+            </tr>
+            <tr id="cogs-row-acetone" style="display:none;">
+              <td style="padding:8px 0;color:var(--muted);">Acetone (ABS smoothing, 15ml)</td>
+              <td class="text-right" id="cogs-r-acetone">—</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Paint / primer</td>
+              <td class="text-right" id="cogs-r-paint">—</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Arbor press depreciation</td>
+              <td class="text-right" id="cogs-r-arbor">—</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;color:var(--muted);">Equipment depreciation</td>
+              <td class="text-right" id="cogs-r-equip">$0.00</td>
+            </tr>
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:10px 0;font-weight:600;">Total COGS</td>
+              <td class="text-right font-mono" id="cogs-r-total" style="font-weight:700;">—</td>
+            </tr>
+          </table>
+
+          <div style="margin-top:24px;">
+            <div class="section-title">Pricing Scenarios</div>
+            <table style="width:100%;margin-top:8px;">
+              <thead>
+                <tr style="background:transparent;">
+                  <th style="padding:6px 0;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;text-align:left;">Markup</th>
+                  <th style="padding:6px 0;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;text-align:right;">Price</th>
+                  <th style="padding:6px 0;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;text-align:right;">Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="padding:7px 0;color:var(--muted);">Cost only</td><td class="text-right" id="cogs-p0">—</td><td class="text-right" style="color:var(--muted);">$0.00</td></tr>
+                <tr><td style="padding:7px 0;color:var(--muted);">+50%</td><td class="text-right" id="cogs-p50">—</td><td class="text-right" id="cogs-p50-profit">—</td></tr>
+                <tr><td style="padding:7px 0;color:var(--muted);">+100%</td><td class="text-right" id="cogs-p100">—</td><td class="text-right" id="cogs-p100-profit">—</td></tr>
+                <tr><td style="padding:7px 0;color:var(--muted);">+150%</td><td class="text-right" id="cogs-p150">—</td><td class="text-right" id="cogs-p150-profit">—</td></tr>
+                <tr style="border-top:2px solid var(--orange);">
+                  <td style="padding:10px 0;font-weight:700;font-size:15px;">Selected Target</td>
+                  <td class="text-right text-orange" id="cogs-p-target" style="font-size:22px;font-weight:700;">—</td>
+                  <td class="text-right" id="cogs-p-target-profit" style="color:var(--yellow);font-weight:600;">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:20px;padding:12px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.8;">
+            <strong style="color:var(--text);">Filament prices used:</strong><br>
+            Bambu ABS/PETG $25/kg &nbsp;|&nbsp; Polymaker ABS $22 / PETG $24/kg<br>
+            Sunlu ABS $18 / PETG $16.50/kg &nbsp;|&nbsp; Printer: 150W @ $0.12/kWh
+          </div>
+        </div>
+      </div>
+
+      <!-- Equipment Registry -->
+      <div class="card" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div class="section-title" style="margin-bottom:0;">⚙️ Equipment Registry — Depreciation per Print</div>
+          <button class="btn btn-orange btn-sm" onclick="openEquipModal()">+ Add Equipment</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          Each piece of equipment contributes a per-hour depreciation cost to your COGS based on its purchase price and expected service life. Toggle items on/off to include or exclude them from calculations.
+        </div>
+        <div class="table-wrap">
+          <table id="equip-table">
+            <thead>
+              <tr>
+                <th style="width:36px;"></th>
+                <th>Equipment</th>
+                <th>Category</th>
+                <th>Purchase Price</th>
+                <th>Est. Life (hrs)</th>
+                <th>Cost / Hour</th>
+                <th>This Print</th>
+                <th style="width:80px;"></th>
+              </tr>
+            </thead>
+            <tbody id="equip-tbody">
+              <tr id="equip-empty-row"><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">No equipment added yet — click "+ Add Equipment" to get started</td></tr>
+            </tbody>
+            <tfoot>
+              <tr style="border-top:2px solid var(--border);background:var(--surface2);">
+                <td colspan="5" style="padding:10px 12px;font-weight:600;font-size:13px;">Total Equipment Depreciation (this print)</td>
+                <td style="padding:10px 12px;font-family:monospace;" id="equip-total-hr">$0.00/hr</td>
+                <td style="padding:10px 12px;font-family:monospace;color:var(--orange);font-weight:700;" id="equip-total-print">$0.00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ─── Square Sales View ──────────────────────── -->
     <div id="view-square" class="view">
       <div class="kpi-row" id="sq-kpis">
@@ -722,9 +928,8 @@ const viewMeta = {
   gallery:     { title: 'Print Gallery',   action: '📷 Upload' },
   fulfillment: { title: 'Fulfillment',     action: null },
   pricing:     { title: 'Pricing Calc',    action: null },
+  cogs:        { title: 'COGS Calculator', action: null },
   square:      { title: 'Square Sales',    action: null },
-  purchases:   { title: 'Purchases',       action: null },
-  glossary:    { title: 'Glossary',        action: null },
 };
 
 document.querySelectorAll('.nav-item').forEach(el => {
@@ -740,23 +945,8 @@ document.querySelectorAll('.nav-item').forEach(el => {
     if (meta.action) { btn.textContent = meta.action; btn.style.display = ''; }
     else btn.style.display = 'none';
     if (view === 'pricing') calcPrice();
-    if (view === 'glossary') {
-      const container = document.getElementById('view-glossary');
-      if (container && typeof Glossary !== 'undefined') Glossary.renderFullPage(container);
-    }
+    if (view === 'cogs') calcCOGS();
   });
-});
-
-// Listen for "open full page" event fired from the glossary slide-out panel
-document.addEventListener('glossary:open-full-page', (e) => {
-  const navItem = document.querySelector('[data-view="glossary"]');
-  if (navItem) navItem.click();
-  if (e.detail && e.detail.term) {
-    setTimeout(() => {
-      const container = document.getElementById('view-glossary');
-      if (container) Glossary.renderFullPage(container, e.detail.term);
-    }, 50);
-  }
 });
 
 function handlePrimaryAction() {
@@ -2976,54 +3166,417 @@ function _skipToNextQueueItem() {
 // ══════════════════════════════════════════════════════════════════════════
 // PHASE 5 — fully integrated into extractReceiptDataOCR above
 // ══════════════════════════════════════════════════════════════════════════
-</script>
 
-<!-- ═══════════════════ GLOSSARY VIEW ═══════════════════════ -->
-<div id="view-glossary" class="view" style="padding:0;"></div>
+// ══════════════════════════════════════════════════════════════════════════
+// EQUIPMENT REGISTRY
+// ══════════════════════════════════════════════════════════════════════════
 
-<!-- Glossary assets — load last so they attach to a fully-built DOM -->
-<link rel="stylesheet" href="glossary.css">
-<script src="glossary.js"></script>
-<script>
-/**
- * Wire up a small number of example linkTerm() usages after glossary loads.
- * Extend this list as you want more acronyms to become clickable across
- * the dashboard. Pattern: find element → swap inner HTML to linked version.
- * Marker dataset.glWired prevents double-wiring on re-render.
- */
-(function() {
-  function wireGlossaryExamples() {
-    if (typeof Glossary === 'undefined' || !Glossary.data) return;
+const EQUIP_KEY = 'ns3dw_equipment';
 
-    // 1. FRG KPI label on the dashboard
-    const frg = document.getElementById('kpi-frg-label');
-    if (frg && !frg.dataset.glWired) {
-      frg.innerHTML = Glossary.linkTerm('FRG', 'FRG') + ' Orders';
-      frg.dataset.glWired = '1';
-    }
+function loadEquipment() {
+  try { return JSON.parse(localStorage.getItem(EQUIP_KEY)) || []; }
+  catch { return []; }
+}
 
-    // 2. "Drop PDF, image, or CSV" caption in Purchases
-    const dropCaption = document.querySelector('#receipt-drop-zone strong');
-    if (dropCaption && !dropCaption.dataset.glWired) {
-      dropCaption.innerHTML = 'Drop ' + Glossary.linkTerm('PDF', 'PDF')
-        + ', image, or ' + Glossary.linkTerm('CSV', 'CSV') + ' here';
-      dropCaption.dataset.glWired = '1';
-    }
+function saveEquipment(list) {
+  localStorage.setItem(EQUIP_KEY, JSON.stringify(list));
+}
 
-    // 3. Any .section-title containing "OCR" becomes clickable
-    document.querySelectorAll('.section-title').forEach(el => {
-      if (el.dataset.glWired) return;
-      if (el.textContent.includes('OCR')) {
-        el.innerHTML = el.textContent.replace(/OCR/g, Glossary.linkTerm('OCR', 'OCR'));
-        el.dataset.glWired = '1';
-      }
-    });
+function getEquipCostPerHour() {
+  return loadEquipment()
+    .filter(e => e.active)
+    .reduce((sum, e) => sum + (e.cost / e.lifeHours), 0);
+}
+
+function renderEquipTable() {
+  const list = loadEquipment();
+  const tbody = document.getElementById('equip-tbody');
+  const emptyRow = document.getElementById('equip-empty-row');
+  const time = parseFloat(document.getElementById('cogs-time').value) || 0;
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr id="equip-empty-row"><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">No equipment added yet — click &quot;+ Add Equipment&quot; to get started</td></tr>';
+    document.getElementById('equip-total-hr').textContent    = '$0.00/hr';
+    document.getElementById('equip-total-print').textContent = '$0.00';
+    return;
   }
 
-  Glossary.load().then(wireGlossaryExamples);
-  // Re-wire after dashboard refreshes (views can re-render)
-  document.addEventListener('dashboard:rendered', wireGlossaryExamples);
-})();
+  let totalPerHr = 0;
+  tbody.innerHTML = list.map((e, i) => {
+    const perHr     = e.cost / e.lifeHours;
+    const perPrint  = perHr * time;
+    if (e.active) totalPerHr += perHr;
+    const activeStyle = e.active ? '' : 'opacity:.45;';
+    return `<tr style="${activeStyle}">
+      <td style="padding:9px 12px;text-align:center;">
+        <input type="checkbox" ${e.active ? 'checked' : ''} onchange="toggleEquip(${i}, this.checked)"
+          style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;">
+      </td>
+      <td style="padding:9px 12px;font-weight:500;">${e.name}</td>
+      <td style="padding:9px 12px;"><span class="badge badge-new">${e.category}</span></td>
+      <td style="padding:9px 12px;">$${parseFloat(e.cost).toFixed(2)}</td>
+      <td style="padding:9px 12px;">${Number(e.lifeHours).toLocaleString()} hrs</td>
+      <td style="padding:9px 12px;font-family:monospace;">$${perHr.toFixed(4)}/hr</td>
+      <td style="padding:9px 12px;font-family:monospace;color:${e.active ? 'var(--orange)' : 'var(--muted)'};">
+        ${e.active && time > 0 ? '$' + perPrint.toFixed(4) : '—'}
+      </td>
+      <td style="padding:9px 12px;display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="openEquipModal(${i})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEquip(${i})">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const totalPerPrint = totalPerHr * time;
+  document.getElementById('equip-total-hr').textContent    = '$' + totalPerHr.toFixed(4) + '/hr';
+  document.getElementById('equip-total-print').textContent = '$' + totalPerPrint.toFixed(4);
+}
+
+function openEquipModal(editIndex) {
+  const modal = document.getElementById('equip-modal');
+  const list  = loadEquipment();
+
+  document.getElementById('equip-modal-title').textContent = editIndex !== undefined ? 'Edit Equipment' : 'Add Equipment';
+  document.getElementById('equip-edit-index').value = editIndex !== undefined ? editIndex : '';
+
+  if (editIndex !== undefined && list[editIndex]) {
+    const e = list[editIndex];
+    document.getElementById('equip-name').value      = e.name;
+    document.getElementById('equip-category').value  = e.category;
+    document.getElementById('equip-cost').value      = e.cost;
+    document.getElementById('equip-life').value      = e.lifeHours;
+    document.getElementById('equip-notes').value     = e.notes || '';
+  } else {
+    document.getElementById('equip-name').value      = '';
+    document.getElementById('equip-category').value  = 'Printer';
+    document.getElementById('equip-cost').value      = '';
+    document.getElementById('equip-life').value      = '';
+    document.getElementById('equip-notes').value     = '';
+  }
+  modal.classList.add('open');
+}
+
+function saveEquipItem() {
+  const name     = document.getElementById('equip-name').value.trim();
+  const category = document.getElementById('equip-category').value;
+  const cost     = parseFloat(document.getElementById('equip-cost').value);
+  const lifeHours= parseFloat(document.getElementById('equip-life').value);
+  const notes    = document.getElementById('equip-notes').value.trim();
+
+  if (!name)        { toast('Equipment name is required', 'warn'); return; }
+  if (!cost || cost <= 0)      { toast('Purchase price must be > 0', 'warn'); return; }
+  if (!lifeHours || lifeHours <= 0) { toast('Est. life must be > 0 hours', 'warn'); return; }
+
+  const list       = loadEquipment();
+  const editIndex  = document.getElementById('equip-edit-index').value;
+  const item       = { name, category, cost, lifeHours, notes, active: true };
+
+  if (editIndex !== '') {
+    item.active = list[parseInt(editIndex)].active; // preserve toggle state
+    list[parseInt(editIndex)] = item;
+    toast('Equipment updated');
+  } else {
+    list.push(item);
+    toast('Equipment added');
+  }
+
+  saveEquipment(list);
+  closeModal('equip-modal');
+  renderEquipTable();
+  calcCOGS();
+}
+
+function deleteEquip(i) {
+  const list = loadEquipment();
+  if (!confirm(`Remove "${list[i].name}"?`)) return;
+  list.splice(i, 1);
+  saveEquipment(list);
+  renderEquipTable();
+  calcCOGS();
+}
+
+function toggleEquip(i, active) {
+  const list = loadEquipment();
+  list[i].active = active;
+  saveEquipment(list);
+  renderEquipTable();
+  calcCOGS();
+}
+
+// ─── G-CODE PARSER ────────────────────────────────────────
+function parseGCodeTimeString(str) {
+  // Parse "2h 23m 45s", "23m 45s", "2h", etc.
+  let h = 0, m = 0, s = 0;
+  const hM = str.match(/(\d+)\s*h/i);
+  const mM = str.match(/(\d+)\s*m(?!s)/i);
+  const sM = str.match(/(\d+)\s*s/i);
+  if (hM) h = parseInt(hM[1]);
+  if (mM) m = parseInt(mM[1]);
+  if (sM) s = parseInt(sM[1]);
+  return h + m / 60 + s / 3600;
+}
+
+function parseGCode(text) {
+  let weight = null, timeHours = null;
+
+  // --- WEIGHT (grams) ---
+  // PrusaSlicer / BambuStudio / OrcaSlicer: "; filament used [g] = 37.81"
+  let m = text.match(/;\s*filament used\s*\[g\]\s*=\s*([\d.]+)/i);
+  if (!m) m = text.match(/;\s*total filament weight\s*\[g\]\s*=\s*([\d.]+)/i);
+  if (!m) m = text.match(/;\s*filament_weight\s*[=:]\s*([\d.]+)/i);
+  if (!m) m = text.match(/;\s*filament used\s*=\s*([\d.]+)\s*g/i);
+  // Cura: ";WEIGHT:37.00"
+  if (!m) m = text.match(/;WEIGHT\s*:\s*([\d.]+)/i);
+  if (m) weight = parseFloat(m[1]);
+
+  // --- TIME ---
+  // PrusaSlicer / Bambu / Orca: "; estimated printing time (normal mode) = 2h 23m 45s"
+  let tMatch = text.match(/;\s*estimated printing time[^=]*=\s*([0-9dhms \t]+)/i);
+  if (tMatch) {
+    timeHours = parseGCodeTimeString(tMatch[1].trim());
+  }
+  // Cura: ";TIME:8258"  (seconds)
+  if (!timeHours) {
+    tMatch = text.match(/;TIME\s*:\s*(\d+)/i);
+    if (tMatch) timeHours = parseInt(tMatch[1]) / 3600;
+  }
+  // Cura human-readable: ";Print time: 2 hours 23 minutes 45 seconds"
+  if (!timeHours) {
+    tMatch = text.match(/;Print time:([^\n]+)/i);
+    if (tMatch) timeHours = parseGCodeTimeString(tMatch[1]);
+  }
+
+  return { weight, timeHours };
+}
+
+function handleGCodeFile(file) {
+  if (!file) return;
+  const errEl    = document.getElementById('gcode-error');
+  const parsedEl = document.getElementById('gcode-parsed');
+  errEl.style.display = 'none';
+  parsedEl.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Only read first 80 KB — slicer stats are always near the top or very bottom
+    const text = e.target.result;
+    const { weight, timeHours } = parseGCode(text);
+
+    if (!weight && !timeHours) {
+      errEl.textContent = '⚠ Could not find weight or time in this file. Make sure it\'s sliced with PrusaSlicer, BambuStudio, OrcaSlicer, or Cura.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    let summary = [];
+    if (weight) {
+      document.getElementById('cogs-weight').value = weight.toFixed(2);
+      summary.push(weight.toFixed(2) + 'g');
+    }
+    if (timeHours) {
+      const hrs = Math.floor(timeHours);
+      const mins = Math.round((timeHours - hrs) * 60);
+      document.getElementById('cogs-time').value = timeHours.toFixed(2);
+      summary.push(hrs + 'h ' + mins + 'm');
+    }
+
+    document.getElementById('gp-summary').textContent = summary.join(' · ');
+    parsedEl.style.display = 'block';
+
+    // Reset file input so same file can be re-dropped
+    document.getElementById('gcode-file-input').value = '';
+    calcCOGS();
+  };
+  // Read first 200 KB as text — slicer metadata is always in the header/footer
+  const blob = file.slice(0, 204800);
+  reader.readAsText(blob);
+}
+
+function clearGCodeParse() {
+  document.getElementById('gcode-parsed').style.display = 'none';
+  document.getElementById('gcode-error').style.display = 'none';
+}
+
+// Drag-and-drop wiring (runs after DOM ready)
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('gcode-dropzone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleGCodeFile(file);
+  });
+});
+
+// Update calcCOGS to include equipment
+function calcCOGS() {
+  const FILAMENT_PRICES = {
+    bambu:     { ABS: 25.00, PETG: 25.00 },
+    polymaker: { ABS: 22.00, PETG: 24.00 },
+    sunlu:     { ABS: 18.00, PETG: 16.50 },
+  };
+  const PRINTER_WATTS   = 150;
+  const ELEC_RATE       = 0.12;
+  const WASTE_FACTOR    = 1.05;
+  const ACETONE_COST_L  = 9.60;
+  const ACETONE_ML      = 15;
+
+  const brand    = document.getElementById('cogs-brand').value;
+  const material = document.getElementById('cogs-material').value;
+  const weight   = parseFloat(document.getElementById('cogs-weight').value) || 0;
+  const time     = parseFloat(document.getElementById('cogs-time').value)   || 0;
+  const useTape  = document.getElementById('cogs-tape').value  === '1';
+  const usePaint = document.getElementById('cogs-paint').value === '1';
+  const useArbor = document.getElementById('cogs-arbor').value === '1';
+  const markup   = parseFloat(document.getElementById('cogs-markup').value) || 2.0;
+
+  const $fmt = n => '$' + n.toFixed(2);
+
+  document.getElementById('cogs-row-acetone').style.display = material === 'ABS' ? '' : 'none';
+
+  // Always refresh equipment table when time changes
+  renderEquipTable();
+
+  if (weight <= 0 || time <= 0) {
+    ['cogs-r-fil','cogs-r-elec','cogs-r-tape','cogs-r-acetone','cogs-r-paint',
+     'cogs-r-arbor','cogs-r-equip','cogs-r-total','cogs-p0','cogs-p50','cogs-p100','cogs-p150',
+     'cogs-p50-profit','cogs-p100-profit','cogs-p150-profit','cogs-p-target','cogs-p-target-profit']
+      .forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+    document.getElementById('cogs-r-wt').textContent  = '—';
+    document.getElementById('cogs-r-kwh').textContent = '—';
+    return;
+  }
+
+  // Filament
+  const pricePerKg  = FILAMENT_PRICES[brand][material];
+  const weightWaste = weight * WASTE_FACTOR;
+  const filCost     = (weightWaste / 1000) * pricePerKg;
+
+  // Electricity
+  const kwh         = (PRINTER_WATTS / 1000) * time;
+  const elecCost    = kwh * ELEC_RATE;
+
+  // Post-processing
+  const tapeCost    = useTape  ? 0.30 : 0;
+  const acetoneCost = material === 'ABS' ? (ACETONE_ML / 1000) * ACETONE_COST_L : 0;
+  const paintCost   = usePaint ? (6.00 / 4) : 0;
+  const arborCost   = useArbor ? (150.00 / 5000) : 0;
+
+  // Equipment depreciation (active items, per-hour × print time)
+  const equipCostPerHr = getEquipCostPerHour();
+  const equipCost      = equipCostPerHr * time;
+
+  const totalCOGS = filCost + elecCost + tapeCost + acetoneCost + paintCost + arborCost + equipCost;
+
+  // Breakdown display
+  document.getElementById('cogs-r-wt').textContent    = weight.toFixed(2);
+  document.getElementById('cogs-r-kwh').textContent   = kwh.toFixed(3);
+  document.getElementById('cogs-r-fil').textContent    = $fmt(filCost);
+  document.getElementById('cogs-r-elec').textContent   = $fmt(elecCost);
+  document.getElementById('cogs-r-tape').textContent   = $fmt(tapeCost);
+  document.getElementById('cogs-r-acetone').textContent= $fmt(acetoneCost);
+  document.getElementById('cogs-r-paint').textContent  = $fmt(paintCost);
+  document.getElementById('cogs-r-arbor').textContent  = $fmt(arborCost);
+  document.getElementById('cogs-r-equip').textContent  = $fmt(equipCost);
+  document.getElementById('cogs-r-total').textContent  = $fmt(totalCOGS);
+
+  // Pricing scenarios
+  const p50  = totalCOGS * 1.5;
+  const p100 = totalCOGS * 2.0;
+  const p150 = totalCOGS * 2.5;
+  const pTgt = totalCOGS * markup;
+
+  document.getElementById('cogs-p0').textContent           = $fmt(totalCOGS);
+  document.getElementById('cogs-p50').textContent          = $fmt(p50);
+  document.getElementById('cogs-p50-profit').textContent   = $fmt(p50  - totalCOGS);
+  document.getElementById('cogs-p100').textContent         = $fmt(p100);
+  document.getElementById('cogs-p100-profit').textContent  = $fmt(p100 - totalCOGS);
+  document.getElementById('cogs-p150').textContent         = $fmt(p150);
+  document.getElementById('cogs-p150-profit').textContent  = $fmt(p150 - totalCOGS);
+  document.getElementById('cogs-p-target').textContent         = $fmt(pTgt);
+  document.getElementById('cogs-p-target-profit').textContent  = $fmt(pTgt - totalCOGS);
+}
+
+// Init equipment table when COGS tab loads
+document.addEventListener('DOMContentLoaded', () => {
+  // Render equipment table if we land on COGS tab directly
+  if (document.getElementById('view-cogs').classList.contains('active')) {
+    renderEquipTable();
+  }
+});
+</script>
+
+<!-- Equipment Modal -->
+<div class="overlay" id="equip-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="equip-modal-title">Add Equipment</h3>
+      <button class="close-btn" onclick="closeModal('equip-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="equip-edit-index">
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Equipment Name *</label>
+          <input type="text" id="equip-name" placeholder="e.g. Bambu X1C, MacBook Pro, Resin Printer">
+        </div>
+        <div class="form-row">
+          <label>Category</label>
+          <select id="equip-category">
+            <option value="Printer">Printer</option>
+            <option value="Computer">Computer</option>
+            <option value="Scanner">Scanner</option>
+            <option value="Tools">Tools</option>
+            <option value="Network">Network / Storage</option>
+            <option value="Camera">Camera</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Purchase Price ($) *</label>
+          <input type="number" id="equip-cost" placeholder="1299.00" step="0.01" min="0.01">
+        </div>
+        <div class="form-row">
+          <label>Estimated Service Life (hours) *</label>
+          <input type="number" id="equip-life" placeholder="e.g. 5000" step="1" min="1">
+          <span style="font-size:11px;color:var(--muted);margin-top:4px;">
+            Tip: Bambu X1C ≈ 10,000 hrs &nbsp;|&nbsp; Laptop ≈ 8,000 hrs &nbsp;|&nbsp; Budget printer ≈ 2,000 hrs
+          </span>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <input type="text" id="equip-notes" placeholder="Serial #, purchase date, warranty info…">
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--muted);" id="equip-preview-cost">
+        Enter price and life hours to see cost/hr
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('equip-modal')">Cancel</button>
+      <button class="btn btn-orange" onclick="saveEquipItem()">💾 Save Equipment</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Live cost/hr preview in equipment modal
+['equip-cost','equip-life'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const cost = parseFloat(document.getElementById('equip-cost').value);
+    const life = parseFloat(document.getElementById('equip-life').value);
+    const el   = document.getElementById('equip-preview-cost');
+    if (cost > 0 && life > 0) {
+      const perHr = cost / life;
+      el.innerHTML = `Cost per hour: <strong style="color:var(--orange);">$${perHr.toFixed(4)}/hr</strong> &nbsp;|&nbsp; Example: 2hr print = <strong style="color:var(--yellow);">$${(perHr * 2).toFixed(4)}</strong>`;
+    } else {
+      el.textContent = 'Enter price and life hours to see cost/hr';
+    }
+  });
+});
 </script>
 
 </body>
