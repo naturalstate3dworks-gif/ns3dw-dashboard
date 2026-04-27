@@ -3305,44 +3305,60 @@ function toggleEquip(i, active) {
 
 // ─── G-CODE PARSER ────────────────────────────────────────
 function parseGCodeTimeString(str) {
-  // Parse "2h 23m 45s", "23m 45s", "2h", etc.
-  let h = 0, m = 0, s = 0;
+  // Parse "2h 23m 45s", "23m 45s", "2h", "1d 2h 3m 4s", etc.
+  str = str.replace(/\r/g, '');
+  let d = 0, h = 0, m = 0, s = 0;
+  const dM = str.match(/(\d+)\s*d/i);
   const hM = str.match(/(\d+)\s*h/i);
   const mM = str.match(/(\d+)\s*m(?!s)/i);
   const sM = str.match(/(\d+)\s*s/i);
+  if (dM) d = parseInt(dM[1]);
   if (hM) h = parseInt(hM[1]);
   if (mM) m = parseInt(mM[1]);
   if (sM) s = parseInt(sM[1]);
-  return h + m / 60 + s / 3600;
+  const total = d * 24 + h + m / 60 + s / 3600;
+  return total > 0 ? total : null;
 }
 
 function parseGCode(text) {
   let weight = null, timeHours = null;
 
   // --- WEIGHT (grams) ---
-  // PrusaSlicer / BambuStudio / OrcaSlicer: "; filament used [g] = 37.81"
-  let m = text.match(/;\s*filament used\s*\[g\]\s*=\s*([\d.]+)/i);
-  if (!m) m = text.match(/;\s*total filament weight\s*\[g\]\s*=\s*([\d.]+)/i);
-  if (!m) m = text.match(/;\s*filament_weight\s*[=:]\s*([\d.]+)/i);
-  if (!m) m = text.match(/;\s*filament used\s*=\s*([\d.]+)\s*g/i);
-  // Cura: ";WEIGHT:37.00"
-  if (!m) m = text.match(/;WEIGHT\s*:\s*([\d.]+)/i);
-  if (m) weight = parseFloat(m[1]);
+  // PrusaSlicer / BambuStudio / OrcaSlicer
+  let wm = text.match(/;\s*filament used\s*\[g\]\s*=\s*([\d.]+)/i);
+  if (!wm) wm = text.match(/;\s*total filament weight\s*\[g\]\s*=\s*([\d.]+)/i);
+  if (!wm) wm = text.match(/;\s*filament_weight\s*[=:]\s*([\d.]+)/i);
+  if (!wm) wm = text.match(/;\s*filament used\s*=\s*([\d.]+)\s*g/i);
+  if (!wm) wm = text.match(/;\s*total weight\s*[=:]\s*([\d.]+)\s*g/i);
+  // Cura
+  if (!wm) wm = text.match(/;WEIGHT\s*[=:]\s*([\d.]+)/i);
+  if (!wm) wm = text.match(/;Filament weight\s*[=:]\s*([\d.]+)/i);
+  if (wm) weight = parseFloat(wm[1]);
 
   // --- TIME ---
   // PrusaSlicer / Bambu / Orca: "; estimated printing time (normal mode) = 2h 23m 45s"
-  let tMatch = text.match(/;\s*estimated printing time[^=]*=\s*([0-9dhms \t]+)/i);
-  if (tMatch) {
-    timeHours = parseGCodeTimeString(tMatch[1].trim());
-  }
-  // Cura: ";TIME:8258"  (seconds)
+  // Use a broad capture — grab everything to end of line, then parse
+  let tMatch = text.match(/;\s*estimated printing time[^\n\r=]*=\s*([^\n\r]+)/i);
+  if (tMatch) timeHours = parseGCodeTimeString(tMatch[1].trim());
+
+  // Bambu/Orca may also emit total time in seconds
   if (!timeHours) {
-    tMatch = text.match(/;TIME\s*:\s*(\d+)/i);
+    tMatch = text.match(/;\s*total estimated time\s*[=:]\s*([^\n\r]+)/i);
+    if (tMatch) timeHours = parseGCodeTimeString(tMatch[1].trim());
+  }
+  // Cura: ";TIME:8258"  (raw seconds)
+  if (!timeHours) {
+    tMatch = text.match(/;TIME\s*[=:]\s*(\d+)/i);
     if (tMatch) timeHours = parseInt(tMatch[1]) / 3600;
   }
-  // Cura human-readable: ";Print time: 2 hours 23 minutes 45 seconds"
+  // Cura human-readable: ";Print time: 2 hours 23 minutes"
   if (!timeHours) {
-    tMatch = text.match(/;Print time:([^\n]+)/i);
+    tMatch = text.match(/;Print time:\s*([^\n\r]+)/i);
+    if (tMatch) timeHours = parseGCodeTimeString(tMatch[1]);
+  }
+  // Generic fallback: any comment with "time" and h/m pattern
+  if (!timeHours) {
+    tMatch = text.match(/;\s*(?:print\s+)?time[^=\n\r]*=?\s*(\d+h\s*\d*m?|\d+m\s*\d*s?)/i);
     if (tMatch) timeHours = parseGCodeTimeString(tMatch[1]);
   }
 
@@ -3356,14 +3372,28 @@ function handleGCodeFile(file) {
   errEl.style.display = 'none';
   parsedEl.style.display = 'none';
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    // Only read first 80 KB — slicer stats are always near the top or very bottom
-    const text = e.target.result;
+  // Read BOTH the first 150KB and last 150KB —
+  // PrusaSlicer/Bambu put stats in the header; some slicers put them in the footer
+  const CHUNK = 153600;
+  const headBlob = file.slice(0, CHUNK);
+  const tailBlob = file.slice(Math.max(0, file.size - CHUNK));
+
+  const readBlob = blob => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.readAsText(blob);
+  });
+
+  Promise.all([readBlob(headBlob), readBlob(tailBlob)]).then(([head, tail]) => {
+    const text = head + '\n' + tail;
     const { weight, timeHours } = parseGCode(text);
 
     if (!weight && !timeHours) {
-      errEl.textContent = '⚠ Could not find weight or time in this file. Make sure it\'s sliced with PrusaSlicer, BambuStudio, OrcaSlicer, or Cura.';
+      // Show first few comment lines to help debug
+      const comments = head.split('\n').filter(l => l.trim().startsWith(';')).slice(0, 8).join('\n');
+      errEl.innerHTML = '⚠ Could not find weight or time in <b>' + file.name + '</b>.<br>'
+        + 'Supported slicers: PrusaSlicer, BambuStudio, OrcaSlicer, Cura.<br><br>'
+        + '<span style="font-size:10px;opacity:.7;white-space:pre-wrap;">' + comments.replace(/</g,'&lt;') + '</span>';
       errEl.style.display = 'block';
       return;
     }
@@ -3373,8 +3403,8 @@ function handleGCodeFile(file) {
       document.getElementById('cogs-weight').value = weight.toFixed(2);
       summary.push(weight.toFixed(2) + 'g');
     }
-    if (timeHours) {
-      const hrs = Math.floor(timeHours);
+    if (timeHours && timeHours > 0) {
+      const hrs  = Math.floor(timeHours);
       const mins = Math.round((timeHours - hrs) * 60);
       document.getElementById('cogs-time').value = timeHours.toFixed(2);
       summary.push(hrs + 'h ' + mins + 'm');
@@ -3382,14 +3412,9 @@ function handleGCodeFile(file) {
 
     document.getElementById('gp-summary').textContent = summary.join(' · ');
     parsedEl.style.display = 'block';
-
-    // Reset file input so same file can be re-dropped
     document.getElementById('gcode-file-input').value = '';
     calcCOGS();
-  };
-  // Read first 200 KB as text — slicer metadata is always in the header/footer
-  const blob = file.slice(0, 204800);
-  reader.readAsText(blob);
+  });
 }
 
 function clearGCodeParse() {
